@@ -1,7 +1,7 @@
 # TheEclipse_SkullportEscape
 Pirate themed treasure hunt
 # ☠ SKULLPORT ESCAPE — Pirate's Eye
-
+Published link: https://v0-skullport-escape.vercel.app/
 A single-file, browser-based 3D stealth game built with [Three.js](https://threejs.org/) and the Web Audio API. No build tools, no dependencies to install — just open the HTML file.
 
 ---

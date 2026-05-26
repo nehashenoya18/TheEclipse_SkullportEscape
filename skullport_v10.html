@@ -1,0 +1,2867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKULLPORT ESCAPE — Pirate's Eye</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Special+Elite&family=Permanent+Marker&display=swap');
+:root{
+  --gold:#f5c842;--gold2:#e0a820;--red:#c8102e;--dark:#04040f;--mid:#0e0e22;
+  --danger:#ff2222;--green:#00ff64;--teal:#00ffcc;--orange:#ff6600;
+  --blue:#2244aa;--purple:#661199;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#000;overflow:hidden;font-family:'Special Elite',serif;cursor:crosshair}
+#renderer-canvas{display:block;width:100vw;height:100vh}
+
+#title-screen{
+  position:fixed;inset:0;z-index:200;
+  background:radial-gradient(ellipse at 50% 100%,#1a0530 0%,#04040f 65%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+}
+#title-screen::before{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,100,.015) 3px,rgba(0,255,100,.015) 4px);
+  pointer-events:none;animation:scan 8s linear infinite;
+}
+@keyframes scan{0%{background-position:0 0}100%{background-position:0 400px}}
+.t-skull{font-size:80px;animation:bob 2.8s ease-in-out infinite;filter:drop-shadow(0 0 22px rgba(245,200,66,.7))}
+@keyframes bob{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-18px) rotate(4deg)}}
+.t-title{font-family:'Cinzel Decorative',serif;font-size:clamp(28px,5vw,64px);color:var(--gold);
+  text-shadow:0 0 40px rgba(245,200,66,.5),4px 4px 0 #5a3000;letter-spacing:4px;text-align:center;line-height:1.1}
+.t-sub{font-size:11px;color:#888;letter-spacing:5px;text-transform:uppercase}
+.t-story{max-width:480px;text-align:center;color:#aaa;font-size:12px;line-height:1.9;padding:0 20px}
+.t-story strong{color:var(--gold)}
+.t-btn{
+  background:linear-gradient(145deg,var(--gold),#d4a017);color:#1a0a00;border:none;
+  padding:13px 52px;font-size:19px;font-family:'Cinzel Decorative',serif;
+  border-radius:6px;cursor:pointer;margin-top:6px;
+  box-shadow:0 5px 0 #7a5000,0 8px 30px rgba(245,200,66,.4);
+  transition:transform .15s,box-shadow .15s;letter-spacing:2px
+}
+.t-btn:hover{transform:translateY(-3px);box-shadow:0 8px 0 #7a5000,0 14px 40px rgba(245,200,66,.5)}
+
+/* HUD */
+#hud{
+  position:fixed;top:0;left:0;right:0;
+  padding:8px 20px;display:none;
+  justify-content:space-between;align-items:center;
+  background:linear-gradient(to bottom,rgba(0,0,0,.92),rgba(0,0,0,.4) 70%,transparent);
+  border-bottom:1px solid rgba(245,200,66,.15);z-index:30;gap:8px;flex-wrap:wrap;
+}
+.hud-block{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:54px}
+.hud-label{font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:2px}
+.hud-val{font-size:20px;color:#fff;line-height:1}
+
+#keys-hud{display:flex;gap:6px;align-items:center}
+.key-slot{width:34px;height:34px;border-radius:50%;border:2px solid #333;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  background:rgba(0,0,0,.6);transition:all .3s;position:relative}
+.key-slot.collected{border-color:var(--gold);background:rgba(245,200,66,.2);
+  box-shadow:0 0 12px rgba(245,200,66,.6);animation:key-glow .8s ease-in-out infinite alternate}
+@keyframes key-glow{from{box-shadow:0 0 8px rgba(245,200,66,.4)}to{box-shadow:0 0 20px rgba(245,200,66,.9)}}
+.key-slot.empty::after{content:'🔑';opacity:.2}
+.key-slot.collected::after{content:'🗝️';opacity:1}
+.gem-slot{width:34px;height:34px;border-radius:6px;border:2px solid #333;
+  display:flex;align-items:center;justify-content:center;font-size:16px;
+  background:rgba(0,0,0,.6);transition:all .3s}
+.gem-slot.collected{border-color:#cc44ff;background:rgba(150,0,255,.2);
+  box-shadow:0 0 12px rgba(150,0,255,.6)}
+.gem-slot.empty::after{content:'💎';opacity:.2}
+.gem-slot.collected::after{content:'💎';opacity:1}
+
+#panic-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:140px}
+#panic-label{font-size:9px;color:var(--danger);text-transform:uppercase;letter-spacing:2px}
+#panic-bar{width:130px;height:11px;background:rgba(255,255,255,.08);border-radius:6px;overflow:hidden;border:1px solid rgba(255,100,0,.3)}
+#panic-fill{height:100%;width:0%;background:linear-gradient(90deg,#00ff64,#ffaa00,#ff2222);background-size:200% 100%;border-radius:6px;transition:width .15s}
+#panic-fill.danger{animation:panic-pulse .3s ease-in-out infinite}
+@keyframes panic-pulse{0%,100%{box-shadow:0 0 8px rgba(255,0,0,.5)}50%{box-shadow:0 0 20px rgba(255,0,0,.9)}}
+#panic-pct{font-size:10px;color:#fff}
+
+#cam-badge{
+  position:fixed;top:58px;right:18px;
+  background:rgba(0,0,0,.85);border:1px solid rgba(0,200,255,.5);
+  border-radius:8px;padding:4px 12px;font-size:11px;
+  color:#00ccff;letter-spacing:1px;z-index:30;display:none;
+}
+#diff-badge{
+  position:fixed;top:80px;right:18px;
+  background:rgba(0,0,0,.8);border:1px solid rgba(255,100,0,.5);
+  border-radius:8px;padding:4px 12px;font-size:11px;
+  color:#ff8800;letter-spacing:1px;z-index:30;display:none;
+}
+
+#carrying-hud{
+  position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  display:none;align-items:center;gap:10px;
+  background:rgba(0,0,0,.85);padding:7px 18px;border-radius:30px;
+  border:2px solid var(--orange);box-shadow:0 0 20px rgba(255,102,0,.4);z-index:30;
+}
+#carrying-hud span{font-size:13px;color:var(--orange);letter-spacing:1px}
+
+/* Mission notification — top-right corner */
+#mission-notif{
+  position:fixed;top:72px;right:-380px;
+  z-index:150;pointer-events:none;
+  transition:right .35s cubic-bezier(.34,1.56,.64,1), opacity .25s;
+  opacity:0;width:300px;
+}
+#mission-notif.show{right:18px;opacity:1;}
+#mission-notif.hide{right:-380px;opacity:0;}
+#mission-notif-inner{
+  background:linear-gradient(145deg,rgba(4,4,20,.97),rgba(10,8,30,.97));
+  border-radius:12px;padding:14px 18px;text-align:left;
+  box-shadow:0 0 30px rgba(245,200,66,.4),0 8px 30px rgba(0,0,0,.9);
+  border:2px solid var(--gold);
+  display:flex;align-items:flex-start;gap:12px;
+}
+#mission-notif-icon{font-size:32px;line-height:1;flex-shrink:0;margin-top:2px;animation:mission-pulse 0.7s ease-in-out infinite alternate;}
+@keyframes mission-pulse{from{transform:scale(1);}to{transform:scale(1.18);}}
+#mission-notif-text{display:flex;flex-direction:column;gap:3px;}
+#mission-notif-title{font-family:'Cinzel Decorative',serif;font-size:9px;color:#888;letter-spacing:3px;text-transform:uppercase;}
+#mission-notif-msg{font-family:'Cinzel Decorative',serif;font-size:14px;letter-spacing:0.5px;line-height:1.3;}
+#mission-notif-sub{font-family:'Special Elite',serif;font-size:11px;color:#aaa;letter-spacing:0.5px;}
+
+#keys-guide{
+  position:fixed;bottom:90px;left:18px;
+  background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.1);
+  border-radius:8px;padding:9px 13px;font-size:10px;
+  color:#888;z-index:30;line-height:2.1;display:none;
+}
+#keys-guide span{
+  display:inline-block;background:rgba(245,200,66,.15);color:var(--gold);
+  border:1px solid rgba(245,200,66,.3);border-radius:3px;padding:0 5px;
+  font-size:9px;margin-right:4px;
+}
+
+#minimap{
+  position:fixed;bottom:90px;right:18px;
+  width:160px;height:110px;background:rgba(0,0,0,.85);
+  border:2px solid rgba(245,200,66,.4);border-radius:6px;z-index:30;
+  overflow:hidden;display:none;
+}
+#minimap::before{content:'☠ MAP';position:absolute;top:3px;left:6px;font-size:8px;color:var(--gold);letter-spacing:2px;opacity:.7;z-index:1}
+#mm-canvas{width:100%;height:100%;display:block}
+
+#clue-bar{
+  position:fixed;bottom:76px;left:50%;transform:translateX(-50%);
+  font-size:13px;color:#ccc;background:rgba(0,0,0,.85);
+  padding:7px 22px;border-radius:30px;border:1px solid rgba(255,255,255,.1);
+  z-index:30;opacity:0;transition:opacity .4s;
+  text-align:center;max-width:560px;pointer-events:none;
+}
+
+#alert-overlay{
+  position:fixed;inset:0;pointer-events:none;z-index:80;opacity:0;transition:opacity .1s;
+  display:flex;align-items:center;justify-content:center;
+}
+#alert-text{
+  font-family:'Permanent Marker',cursive;font-size:72px;color:var(--danger);
+  text-shadow:0 0 30px #ff0000,4px 4px 0 #8b0000;
+  animation:alert-shake .1s ease-in-out infinite;
+}
+@keyframes alert-shake{0%,100%{transform:translateX(0) rotate(-1deg)}50%{transform:translateX(4px) rotate(1deg)}}
+#alert-border{position:fixed;inset:0;pointer-events:none;z-index:79;border:6px solid transparent;transition:border-color .1s}
+#alert-border.on{border-color:rgba(255,30,30,.6);box-shadow:inset 0 0 80px rgba(255,30,30,.3)}
+
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:20;
+  background:radial-gradient(ellipse at 50% 50%,transparent 50%,rgba(0,0,0,.65) 100%)}
+
+/* Gem-key modal */
+#gem-modal{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:linear-gradient(145deg,rgba(8,6,18,.98),rgba(16,12,30,.98));
+  border:2px solid #cc44ff;border-radius:14px;
+  padding:28px 44px;text-align:center;z-index:110;
+  display:none;max-width:480px;width:92vw;
+  box-shadow:0 0 60px rgba(150,0,255,.4),0 20px 60px rgba(0,0,0,.9);
+}
+#gem-modal h2{font-family:'Cinzel Decorative',serif;font-size:22px;color:#cc44ff;margin-bottom:12px}
+#gem-modal p{font-size:13px;color:#bbb;line-height:1.8;margin-bottom:20px}
+.gem-btn-row{display:flex;gap:16px;justify-content:center}
+.gem-btn{
+  background:linear-gradient(145deg,#6600aa,#9900ff);color:#fff;
+  border:none;padding:11px 28px;font-size:15px;font-family:'Cinzel Decorative',serif;
+  border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #330066;
+  transition:transform .1s;
+}
+.gem-btn:hover{transform:translateY(-2px)}
+
+#msg{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:linear-gradient(145deg,rgba(8,6,18,.98),rgba(16,12,30,.98));
+  border:2px solid var(--gold);border-radius:14px;
+  padding:28px 44px;text-align:center;z-index:100;
+  display:none;max-width:540px;width:92vw;
+  box-shadow:0 0 60px rgba(245,200,66,.25),0 20px 60px rgba(0,0,0,.9);
+}
+#msg h2{font-family:'Cinzel Decorative',serif;font-size:24px;color:var(--gold);margin-bottom:12px}
+#msg p{font-size:13px;color:#bbb;line-height:1.8;margin-bottom:20px;white-space:pre-line}
+#msg button{
+  background:linear-gradient(145deg,var(--gold),#e0a800);color:#1a0a00;
+  border:none;padding:11px 32px;font-size:16px;font-family:'Cinzel Decorative',serif;
+  border-radius:6px;cursor:pointer;box-shadow:0 4px 0 #7a5000;
+  transition:transform .1s;
+}
+#msg button:hover{transform:translateY(-2px)}
+
+/* Box search modal */
+#box-modal{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:linear-gradient(145deg,rgba(8,6,18,.98),rgba(16,12,30,.98));
+  border:2px solid var(--gold);border-radius:14px;
+  padding:24px 36px;text-align:center;z-index:108;
+  display:none;max-width:440px;width:92vw;
+  box-shadow:0 0 40px rgba(245,200,66,.2);
+}
+#box-modal h2{font-family:'Cinzel Decorative',serif;font-size:20px;color:var(--gold);margin-bottom:10px}
+#box-modal p{font-size:13px;color:#bbb;margin-bottom:16px}
+.box-grid{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.box-item{
+  width:70px;height:70px;background:rgba(90,48,16,.5);border:2px solid #7a5020;
+  border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:28px;transition:all .2s;position:relative;
+}
+.box-item:hover{border-color:var(--gold);background:rgba(90,48,16,.9);transform:scale(1.08)}
+.box-item.opened{opacity:.4;cursor:default;pointer-events:none}
+.box-item.opened::after{content:'✗';position:absolute;font-size:24px;color:#ff4444}
+
+#level-banner{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Cinzel Decorative',serif;font-size:58px;
+  color:var(--gold);text-shadow:5px 5px 0 #5a3000,0 0 40px rgba(245,200,66,.6);
+  opacity:0;z-index:90;pointer-events:none;transition:opacity .3s;white-space:nowrap;text-align:center;
+}
+#level-sub{font-size:20px;color:#aaa;text-shadow:none;display:block;margin-top:8px;font-family:'Special Elite',serif}
+
+#zone-label{
+  position:fixed;top:58px;left:50%;transform:translateX(-50%);
+  font-family:'Permanent Marker',cursive;font-size:15px;color:var(--gold);
+  background:rgba(0,0,0,.65);padding:3px 16px 4px;
+  border-radius:30px;border:1px solid rgba(245,200,66,.3);z-index:30;display:none;
+}
+
+#spotted-indicator{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:75;opacity:0;transition:opacity .2s}
+#spotted-indicator span{font-family:'Permanent Marker',cursive;font-size:38px;color:#ffaa00;text-shadow:0 0 20px #ff8800}
+
+#sound-indicator{position:fixed;top:50%;left:20px;transform:translateY(-50%);display:none;flex-direction:column;align-items:center;gap:4px;z-index:30}
+#sound-bar-wrap{display:flex;flex-direction:column;gap:2px;align-items:center}
+.snd-bar{width:6px;height:20px;background:rgba(255,255,255,.1);border-radius:3px;transition:all .1s}
+.snd-bar.active{background:var(--green)}.snd-bar.warn{background:#ffaa00}.snd-bar.danger{background:var(--danger)}
+#sound-label{font-size:8px;color:#666;letter-spacing:1px;text-transform:uppercase;margin-top:2px}
+
+#panic-tint{position:fixed;inset:0;pointer-events:none;z-index:19;background:rgba(255,0,0,0);transition:background .1s}
+#fear-fog{position:fixed;inset:0;pointer-events:none;z-index:18;opacity:0;
+  background:radial-gradient(ellipse at 50% 50%,transparent 30%,rgba(20,0,40,.9) 100%)}
+
+/* Demon sprite overlay */
+#demon-warning{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  z-index:95;pointer-events:none;transition:transform .2s;
+}
+#demon-warning.show{transform:translate(-50%,-50%) scale(1)}
+#demon-warning img{width:120px;height:120px;image-rendering:pixelated;filter:drop-shadow(0 0 20px #00ff44) drop-shadow(0 0 8px #00aa22)}
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <div class="t-skull">☠️</div>
+  <h1 class="t-title">SKULLPORT<br>ESCAPE</h1>
+  <div class="t-sub">Pirate's Eye · 5 Levels of Dread</div>
+  <div class="t-story">
+    You are a cursed pirate. Haunted frog-demons stalk every shadow.<br>
+    <strong>All Keys &amp; the Gem are on the Port in Level 1!</strong><br>
+    Insert the Gem into the right key to reveal the treasure!<br>
+    <strong>C</strong> = Switch Camera · <strong>E</strong> = Interact · <strong>Shift</strong> = Sneak · <strong>Space</strong> = Hide
+  </div>
+  <button class="t-btn" onclick="startGame()">⚓ BEGIN THE HEIST</button>
+</div>
+
+<canvas id="renderer-canvas"></canvas>
+
+<div id="hud">
+  <div class="hud-block">
+    <span class="hud-label">Score</span>
+    <span class="hud-val" id="score-display">0</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Level</span>
+    <span class="hud-val" id="level-display">1</span>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+    <span class="hud-label">Keys &amp; Gem</span>
+    <div id="keys-hud">
+      <div class="key-slot empty" id="ks0" title="Key 1"></div>
+      <div class="key-slot empty" id="ks1" title="Key 2"></div>
+      <div class="gem-slot empty" id="gs0" title="Gem"></div>
+    </div>
+  </div>
+  <div id="panic-wrap">
+    <span id="panic-label">⚠ Panic Meter</span>
+    <div id="panic-bar"><div id="panic-fill"></div></div>
+    <span id="panic-pct">0%</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Status</span>
+    <span class="hud-val" id="status-val" style="font-size:12px;color:#aaa">SNEAKING</span>
+  </div>
+</div>
+
+<div id="cam-badge">👁 PIRATE'S EYE</div>
+<div id="diff-badge">⚔ LEVEL 1 · GUARDS ×2</div>
+<div id="zone-label">PORT SKULLPORT</div>
+<div id="carrying-hud" style="display:none"><span id="carrying-hud-text">💀 CARRYING TREASURE — REACH EXTRACTION!</span></div>
+
+<!-- Mission objective notification — top right -->
+<div id="mission-notif">
+  <div id="mission-notif-inner">
+    <div id="mission-notif-icon">💰</div>
+    <div id="mission-notif-text">
+      <div id="mission-notif-title">OBJECTIVE</div>
+      <div id="mission-notif-msg">COLLECT THE TREASURE</div>
+      <div id="mission-notif-sub">Head to the DROP ZONE</div>
+    </div>
+  </div>
+</div>
+
+<div id="keys-guide" style="display:none">
+  <span>WASD/↑←↓→</span> Move<br>
+  <span>Shift</span> Sneak<br>
+  <span>Space</span> Crouch/Hide<br>
+  <span>E</span> Interact / Open box<br>
+  <span>C</span> Switch Camera<br>
+  <span>M</span> Toggle minimap
+</div>
+
+<div id="minimap"><canvas id="mm-canvas" width="160" height="110"></canvas></div>
+<div id="clue-bar"></div>
+<div id="alert-overlay"><div id="alert-text">⚠ SPOTTED!</div></div>
+<div id="alert-border"></div>
+<div id="spotted-indicator"><span>👁 SEEN!</span></div>
+<div id="vignette"></div>
+<div id="panic-tint"></div>
+<div id="fear-fog"></div>
+<div id="level-banner"><span id="level-banner-text">LEVEL 1</span><span id="level-sub"></span></div>
+
+<div id="sound-indicator">
+  <div id="sound-bar-wrap">
+    <div class="snd-bar" id="sb4"></div>
+    <div class="snd-bar" id="sb3"></div>
+    <div class="snd-bar" id="sb2"></div>
+    <div class="snd-bar" id="sb1"></div>
+    <div class="snd-bar" id="sb0"></div>
+  </div>
+  <div id="sound-label">Noise</div>
+</div>
+
+<!-- Gem insertion modal -->
+<div id="gem-modal">
+  <h2>💎 GEM INSERTION</h2>
+  <p id="gem-modal-msg">You have both keys and the gem!<br>Which key do you forge the gem into?<br><em>Only one unlocks the treasure...</em></p>
+  <div class="gem-btn-row" id="gem-btn-row">
+    <button class="gem-btn" id="gem-btn-0" onclick="insertGem(0)">🗝️ Key 1</button>
+    <button class="gem-btn" id="gem-btn-1" onclick="insertGem(1)">🗝️ Key 2</button>
+  </div>
+</div>
+
+<!-- Box search modal -->
+<div id="box-modal">
+  <h2>📦 Search the Boxes</h2>
+  <p id="box-modal-msg">Open a box to find the hidden key!</p>
+  <div class="box-grid" id="box-grid"></div>
+  <button class="gem-btn" onclick="closeBoxModal()" style="background:linear-gradient(145deg,#333,#555)">Close</button>
+</div>
+
+<div id="msg">
+  <h2 id="msg-title">Message</h2>
+  <p id="msg-body"></p>
+  <button id="msg-btn" onclick="closeMsg()">Continue</button>
+</div>
+
+<div id="demon-warning">
+  <img id="demon-img" src="" alt="DEMON"/>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  SKULLPORT ESCAPE — Pirate's Eye Edition
+//  • Proper obstacle collision
+//  • C = cycle 3 camera modes (overhead, shoulder, first-person pirate eye)
+//  • 2 Keys + 1 Gem per level; gem+key insertion puzzle
+//  • Level 1: Key1 on Port, Key2+Gem hidden in ship boxes
+//  • Demon (frog sprite) in each level
+// ═══════════════════════════════════════════════════════════
+
+const DEMON_IMG = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAIAAgADASIAAhEBAxEB/8QAGgABAQADAQEAAAAAAAAAAAAAAAgFBwkGBP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/xAAbAQEAAgMBAQAAAAAAAAAAAAAABQYCAwQHAf/EADgRAQABAAQLBgYCAgMBAAAAAAARBAUSIgECAxMUITFBUWHhBhVCgaHBFkNiY4KiIzJScTORwjT/2gAMAwEAAhEDEQA/AIyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABUaLrKstCs3Zmd8bI5YeLiplM0azdmUuCoxGfEn2/Xo4u+Po9eiXBUYfEn2/Xod8fR69EuALOmgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFRousqy0KzdmZ3xsjlh4uKmUzRrN2ZHvEbiHyvZfOR/L+vVxdz/X6dVkI3UY94hqtrLuq1dtWo3xETyw8XFQ6Zo1q7Mo3HRhq9J/Fv2f26JDGrWz4PXojcdGHtm3J9qbc/xft0bMWsZ8Pr0csR1OG34k+169GWn/T69EeiwniVTymVsRqQeNkI3uaAt8WL4t+z+3RJ97/R69EbjowHxb9n9ujb3n9Pr0TmKMe2V3J5W3OpD4uQnej1LjrKj1M1bWWhWrszG+Nk8sPF1UekaHOqZ8tiXAF7WMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABaCRlctpvO6HXPdlq5atc42eWHik6w8Pn7J/FiCE0/6fXoqXc31+nV4cc51cpmsql0GzfmZ3Rsjnh4u6j1JnpvxHLq2+nN61S6Ixspo3OWNLqHNx/J6dUdveKIGjK0vORqcnc/1+nV4d7ZNTyTvyWTsTrZVnQu7rN61andGyP8AfFYQ8SNWk8nBnABzNY5zg9Kqmqe7rd+1ajdGyeeHisFGo2YnXMgOwKZdTSz2zlish5zWVW912b1q1O6IiOeHir9KyWixrmXg0uKjS4n+zfzPL3bqn8fl7gCzpoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABaCl00KXePU7w+aTrDw+fsAOBHAAAAAAAAI7UY9wwTtx6TndyD7szfi9OrCACPc5xRic3p9W1lptq7ERvnbPLBwTtDpmk2rsQ7AuPwrkrKstBs3Zmd8bI5YeKWo9Hz064hIzow5zujCB7W/J/L2QNZ+Hz9mr3g3vHg1Yo29AYUuAPWV0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgpdyvdUHmfaCrdBzd6ZndGyOeHi6qRSM9GqIAFbc4AAAAAAAAADw4zbCOvBhlW8vkM1GuZHOd0YE3VNbd3W7lq1G+Nk8sPFnRqTmJ1TLnOOjAmPi37P7dHV3n9Pr0Tm942g1eqeVyucjUg8bEsgDUxeDS4y7EPT6tq3QrV6ZjdGyeeHis1DoejWr0yAJR2gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMu6oOV7oYpHbLBOZ/L/y+4GxAFGfQAAAAAAAAAB4d7h4duyO9E1p4fP2AG9EgAANXjHGxrINoNXjVjYtkRusgTNU1t3dbuWrUb42Tyw8XXQ6Zo06plEAqNLi7VbWWm2rsRG+ds8sHBM0OmaTauxAAlHaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALQRetBVu0vyvP2SVXeLy91LgPOEeAAAAAAAAAAMEzoywYYa8fEtJ3bQTmoxIZXJZuNapZLeA1e1M8bGstoA1eGNjWQAaAAB4N7x4N1Ube+YUuAPWV0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGXYgB1nGu2xHiGHBDIAfAAAAAAAAAR2sRHaRoHi8vdB1z4PP2e8bQBrRuLi2Wr20Bq8Y/0BtBq8YY2LZABiAAAAjdiGXYh7GuYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0FLuV7qg8z7QVboObvTM7o2Rzw8XVSKRno1RAArbnAAAAAAAAa7T+nN0YWisKr7ps37Vqd0REc8PFDVti2rHn7ACERg1e8G9425XJZuNbRjY9oAamIAA2gNXjb/QbQGrw/oI3dGHOdceyXzvx90vVWLZt+XuxAC5JcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgi9l0XWVW6dZvRE7p2xzwcHTR6RmZ1TLqgA8jaAAAAAABrsc809U1Td5W79mzG6ds88HB8HU54l7ZI06tu8bNyzZnfO3ywcEHlqTn41RDxINXq6jsbGsvBveNiNds8fL53dEN1MoejRemQBg4h4MUY6v+DnL7i4tpq9tAHK3YuLZABkNXjaA1/3Tmlxb6N137L5XOZ3V/j7pSp/H5e7EALYmgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABl2IZcFcqXcr1cvOq5qbRrF+Znd/rmk/wD7OUee1S412KtCObEGuwgAH0HPN0MT+sfZ+stCzl2ZjfGyeWHi4abTNGs3ZlYQPEuTKZSxGpD42NA5zujDnOsfZL534+7vqzxeXu6GAKIl2u3g1AJ/SVDxrUqtTaHo1m9MqMB7Zhk8nbnW+YuLIA7m54kBGOcavbQBjjYtpq94N7wbcllc3OpzogGXYh68ugAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAy7EMuCjE5qMFEq2stCtXZmN8bJ5YeKr0OmaNauzL1rabnmOvLdlM7H8v69VypFJz0aoh0MGrG01Jy2RzUaykUfMxrmQBoc7nm6MOc7owvfa35P5eyIrPw+fsAKcik5qAc83QxM9oKt0LN3pmd0bI54eKeoVD0a1emQBXHcn9Ric1GJSk7lOyW8Acra9s8SDblMpbjUyxsaQBqYjV7aDV415TcADUjdiGXYh7GuYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADLqMTmIusqt02zeiJ3Ttjng4OKmUPSbN6IUYnMCrat0K1emY3Rsnnh4lDoejWr0ysh8D7x5pk8pYnUj6rrTQLdy1ajfGyeWHi+BIyyEbrl2WylvO6v8fdM4laaf4LNnnO3ywcFkNoOc7owgq2qnu6xftWp3Rsjnh4oHL0PRo1zINXtoIZy4uNac53QxzzdDFt7Y/J/L/ytuAAUh9c81kNiOea84uN8Sfbzf5Ta/wCoiHDTKHpNm9EOjA1e2gqCv4uNaABkDV4Nec5AA1CNxiHpVU1T3dbv2rUbo2Tzw8VmodD0adcyAJl2gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADLsQy4KMTmCLq2rdCtXpmN0bJ54eLiodD0a1emRZCNxqraqe8bF+zZndO2OeDgUyh6TGuIUY94jcRmV7L5yP5f16uLuf6/TqKMTmJisqt02zeiJ3Ttjng4O2mUPSbN6IHRgFJratu8bFyzZnfO2OWDgjaTSc/GqITmoxOajHBSdyPyW9znVy2+5zrZk8p3/OqxY85n/qIhbqtrKbV3hv/wB8lcpGYgTNW1boNq9MxujZPPDxdVIpGejVEMuCyGqtq27usXLVqd8bI5YeKJplM0aNUyjcUYoxGZXtRm4/i/bo5MStbXg9ejnOowUYi62rbSrFyInf/rk4qTSdLjVEee1Ob3jaDV6ByuVzkanHjYlkRushG62dkvnfj7peqPH5e4xALkmgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAFRiXBWPhv7np1Qvc/1+nVlxiBZ00y4xAAADLjEAMuMQAy4xADLjEAMuxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//9k=";
+
+// ── Process DEMON_IMG: remove background, keep frog, transparent bg ──
+// Strategy: JPEG frog on dark/black bg. We use HSL + luminance to detect
+// non-background pixels, then softly mask them. Works for both dark bg
+// and mixed-colour frogs (green-dominant but may have yellow/white belly).
+let DEMON_IMG_CLEAN = DEMON_IMG; // fallback until processed
+(function processGreenFrog() {
+  const img = new Image();
+  img.onload = function() {
+    const W = img.width, H = img.height;
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const ctx = off.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    const id = ctx.getImageData(0, 0, W, H);
+    const d = id.data;
+
+    // Pass 1: classify each pixel
+    // "background" = very dark (low luminance) OR strongly desaturated dark
+    // "frog"       = anything else — kept with boosted vibrancy
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+
+      // Convert to HSL for better classification
+      const rn = r/255, gn = g/255, bn = b/255;
+      const mx = Math.max(rn, gn, bn), mn = Math.min(rn, gn, bn);
+      const lum = (mx + mn) / 2;
+      const sat = mx === mn ? 0 : lum < 0.5 ? (mx-mn)/(mx+mn) : (mx-mn)/(2-mx-mn);
+
+      // Background heuristic:
+      //  • very dark  (lum < 0.12)
+      //  • OR dark + nearly grey  (lum < 0.22 && sat < 0.18)
+      const isBg = (lum < 0.12) || (lum < 0.22 && sat < 0.18);
+
+      if (isBg) {
+        d[i+3] = 0; // fully transparent
+      } else {
+        // Soft edge: partially transparent for near-background pixels
+        // (smooth out JPEG compression fringing)
+        const edgeFactor = Math.min(1, (lum - 0.12) / 0.14);
+        const alpha = Math.round(edgeFactor * 255);
+
+        // Boost vibrancy: push green channel up, dim red/blue slightly
+        d[i]   = Math.max(0, Math.round(r * 0.88));
+        d[i+1] = Math.min(255, Math.round(g * 1.18));
+        d[i+2] = Math.max(0, Math.round(b * 0.82));
+        d[i+3] = alpha;
+      }
+    }
+
+    ctx.putImageData(id, 0, 0);
+    DEMON_IMG_CLEAN = off.toDataURL('image/png');
+
+    // Update live demon texture if already spawned
+    if (demonMesh && demonMesh.material && demonMesh.material.map) {
+      new THREE.TextureLoader().load(DEMON_IMG_CLEAN, tex => {
+        demonMesh.material.map = tex;
+        demonMesh.material.needsUpdate = true;
+      });
+    }
+    const di = document.getElementById('demon-img');
+    if (di) di.src = DEMON_IMG_CLEAN;
+  };
+  img.src = DEMON_IMG;
+})();
+
+// ── Renderer & Scene ──────────────────────────────────────
+const canvas = document.getElementById('renderer-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(65, innerWidth/innerHeight, 0.1, 200);
+camera.position.set(0, 18, 20);
+camera.lookAt(0,0,0);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ── Camera Modes ──────────────────────────────────────────
+// 0 = overhead/follow, 1 = shoulder, 2 = first-person (pirate eye)
+let cameraMode = 0;
+const CAM_LABELS = ['👁 OVERHEAD', '👁 SHOULDER', '👁 PIRATE\'S EYE'];
+
+// ══════════════════════════════════════════════════════════
+//  SKULLPORT SOUND ENGINE  — rich procedural Web Audio
+// ══════════════════════════════════════════════════════════
+let audioCtx = null;
+let masterGain = null;
+let ambientSrc = null;   // looping ambient node
+let ambientGain = null;
+
+function getAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = 0.82;
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+
+// ── Low-level helpers ─────────────────────────────────────
+function playTone(freq, dur, type='sine', vol=0.3, delay=0) {
+  try {
+    const ac = getAudio();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(masterGain);
+    osc.type = type; osc.frequency.value = freq;
+    const t0 = ac.currentTime + delay;
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  } catch(e){}
+}
+
+function makeNoiseBuf(ac, dur, decay=0.4) {
+  const buf = ac.createBuffer(1, ac.sampleRate*dur, ac.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i] = (Math.random()*2-1)*Math.exp(-i/(d.length*decay));
+  return buf;
+}
+
+function playFilteredNoise(vol=0.12, dur=0.08, loFreq=300, hiFreq=null, type='lowpass', delay=0) {
+  try {
+    const ac = getAudio();
+    const buf = makeNoiseBuf(ac, dur);
+    const src = ac.createBufferSource();
+    const filt = ac.createBiquadFilter();
+    const gain = ac.createGain();
+    filt.type = type; filt.frequency.value = loFreq;
+    if (hiFreq !== null) filt.Q.value = hiFreq;
+    src.buffer = buf;
+    src.connect(filt); filt.connect(gain); gain.connect(masterGain);
+    const t0 = ac.currentTime + delay;
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.start(t0); src.stop(t0 + dur + 0.05);
+  } catch(e){}
+}
+
+// Frequency-swept tone (for wind, groans, etc.)
+function playSweep(f0, f1, dur, vol, type='sine', delay=0) {
+  try {
+    const ac = getAudio();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain); gain.connect(masterGain);
+    osc.type = type;
+    const t0 = ac.currentTime + delay;
+    osc.frequency.setValueAtTime(f0, t0);
+    osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.start(t0); osc.stop(t0 + dur + 0.05);
+  } catch(e){}
+}
+
+// ── Ambient ocean / dungeon loop ──────────────────────────
+function startAmbient(theme='port') {
+  try {
+    const ac = getAudio();
+    if (ambientSrc) { try { ambientSrc.stop(); } catch(e){} ambientSrc = null; }
+    if (ambientGain) { ambientGain.disconnect(); }
+
+    ambientGain = ac.createGain();
+    ambientGain.gain.value = 0;
+    ambientGain.connect(masterGain);
+
+    // Long looping noise buffer (4 s)
+    const dur = 4.0;
+    const bufLen = ac.sampleRate * dur;
+    const buf = ac.createBuffer(2, bufLen, ac.sampleRate);
+
+    // Build ocean/wind texture per theme
+    for (let ch=0; ch<2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i=0; i<bufLen; i++) {
+        // Base white noise
+        let s = (Math.random()*2-1) * 0.4;
+        // Slow wave modulation (ocean swell)
+        s *= 0.5 + 0.5*Math.sin(i/ac.sampleRate * 0.35 * Math.PI * 2 + ch);
+        d[i] = s;
+      }
+    }
+
+    const bandpass = ac.createBiquadFilter();
+    bandpass.type = 'bandpass';
+    bandpass.frequency.value = theme === 'forest' ? 600 : theme === 'hall' ? 200 : 380;
+    bandpass.Q.value = 0.4;
+
+    const lo = ac.createBiquadFilter();
+    lo.type = 'lowpass';
+    lo.frequency.value = theme === 'forest' ? 900 : 500;
+
+    ambientSrc = ac.createBufferSource();
+    ambientSrc.buffer = buf;
+    ambientSrc.loop = true;
+    ambientSrc.connect(bandpass);
+    bandpass.connect(lo);
+    lo.connect(ambientGain);
+    ambientSrc.start();
+
+    // Fade in
+    ambientGain.gain.setValueAtTime(0, ac.currentTime);
+    ambientGain.gain.linearRampToValueAtTime(0.18, ac.currentTime + 2.5);
+
+    // Schedule gentle random creaks / drips every few seconds
+    scheduleAmbientEvents(theme);
+  } catch(e){}
+}
+
+let _ambientEvtHandle = null;
+function scheduleAmbientEvents(theme) {
+  clearTimeout(_ambientEvtHandle);
+  function doEvent() {
+    if (gameState !== 'play') { _ambientEvtHandle = setTimeout(doEvent, 2000); return; }
+    const roll = Math.random();
+    if (theme === 'port' || theme === 'shore') {
+      if (roll < 0.35) playSailCreak();
+      else if (roll < 0.6) playWaterDrip();
+      else playDistantGull();
+    } else if (theme === 'forest') {
+      if (roll < 0.4) playOwlHoot();
+      else if (roll < 0.7) playWindRustle();
+      else playBranchSnap();
+    } else if (theme === 'hall' || theme === 'pyramid') {
+      if (roll < 0.45) playStoneGroan();
+      else if (roll < 0.7) playWaterDrip();
+      else playEchoStep();
+    } else {
+      if (roll < 0.5) playWaterDrip();
+      else playStoneGroan();
+    }
+    _ambientEvtHandle = setTimeout(doEvent, 2500 + Math.random()*4000);
+  }
+  _ambientEvtHandle = setTimeout(doEvent, 1500 + Math.random()*2000);
+}
+
+// ── Ambient event sounds ──────────────────────────────────
+function playSailCreak() {
+  // Slow woody creak
+  playSweep(180 + Math.random()*60, 120 + Math.random()*40, 0.6+Math.random()*0.4, 0.04 + Math.random()*0.03, 'sawtooth');
+  playSweep(90, 140, 0.3, 0.025, 'sine', 0.5);
+}
+function playWaterDrip() {
+  const f = 800 + Math.random()*400;
+  playTone(f, 0.08, 'sine', 0.07 + Math.random()*0.04);
+  playTone(f*0.75, 0.12, 'sine', 0.04, 0.06);
+  playFilteredNoise(0.03, 0.06, 2000, 1.0, 'highpass');
+}
+function playDistantGull() {
+  const base = 900 + Math.random()*200;
+  playSweep(base, base*1.3, 0.18, 0.05, 'sine');
+  playSweep(base*1.3, base*0.8, 0.22, 0.04, 'sine', 0.18);
+  playSweep(base*0.8, base*1.1, 0.14, 0.03, 'sine', 0.38);
+}
+function playOwlHoot() {
+  playSweep(340, 290, 0.25, 0.07, 'sine');
+  playSweep(290, 310, 0.18, 0.05, 'sine', 0.28);
+  setTimeout(()=>{
+    playSweep(340, 290, 0.25, 0.06, 'sine');
+    playSweep(290, 310, 0.18, 0.04, 'sine', 0.28);
+  }, 700 + Math.random()*300);
+}
+function playWindRustle() {
+  playFilteredNoise(0.06, 0.8+Math.random()*0.4, 400+Math.random()*300, 0.3, 'bandpass');
+  playFilteredNoise(0.03, 0.5, 800, 0.2, 'bandpass', 0.2);
+}
+function playBranchSnap() {
+  playFilteredNoise(0.08, 0.04, 800, 0.5, 'highpass');
+  playFilteredNoise(0.05, 0.06, 300, null, 'lowpass', 0.03);
+}
+function playStoneGroan() {
+  playSweep(60+Math.random()*30, 40+Math.random()*20, 0.9+Math.random()*0.5, 0.045, 'sawtooth');
+  playFilteredNoise(0.02, 0.4, 150, null, 'lowpass', 0.1);
+}
+function playEchoStep() {
+  playFilteredNoise(0.05, 0.05, 400, null, 'lowpass');
+  // Decaying echo
+  [0.18, 0.38, 0.55].forEach((d,i) => playFilteredNoise(0.025/(i+1), 0.04, 350, null, 'lowpass', d));
+}
+
+// ── Footsteps ─────────────────────────────────────────────
+let _footPhase = 0;
+function playFootstep(sneak) {
+  _footPhase = (_footPhase + 1) % 2;
+  try {
+    const ac = getAudio();
+    const vol = sneak ? 0.04 : 0.13;
+    const freqLo = sneak ? 120 : (_footPhase===0 ? 260 : 220);
+    const freqHi = sneak ? 300 : 1200;
+    // Thud
+    playFilteredNoise(vol, sneak ? 0.06 : 0.055, freqLo, null, 'lowpass');
+    // Tap transient
+    if (!sneak) playFilteredNoise(vol*0.5, 0.02, freqHi, 2.0, 'bandpass', 0.01);
+    // Wood creak occasionally
+    if (!sneak && Math.random() < 0.3) playSweep(200+Math.random()*80, 140+Math.random()*60, 0.08, 0.025, 'sawtooth', 0.04);
+  } catch(e){}
+}
+
+// ── Alert / spotted ───────────────────────────────────────
+function playAlertSound() {
+  // Rising danger sting
+  playSweep(180, 440, 0.08, 0.35, 'sawtooth');
+  playSweep(220, 550, 0.1, 0.3, 'square', 0.06);
+  playSweep(330, 660, 0.12, 0.25, 'sawtooth', 0.14);
+  // Noise burst
+  playFilteredNoise(0.25, 0.06, 1200, 1.5, 'bandpass', 0.0);
+  // Low warning boom
+  playTone(55, 0.4, 'sine', 0.3, 0.18);
+}
+
+// ── Key pickup ────────────────────────────────────────────
+function playKeySound() {
+  // Metallic jingle — shimmer of partials
+  const base = 523;
+  [[1,0],[1.33,0.06],[1.78,0.13],[2.0,0.19],[2.67,0.25],[3.0,0.3]].forEach(([r,d])=>{
+    playTone(base*r, 0.18-d*0.1, 'sine', 0.28-d*0.05, d);
+  });
+  // Metal clink noise burst
+  playFilteredNoise(0.1, 0.03, 4000, 3.0, 'bandpass');
+  playFilteredNoise(0.06, 0.06, 6000, 2.0, 'highpass', 0.01);
+  // Confirmatory low note
+  playTone(261, 0.3, 'sine', 0.15, 0.28);
+}
+
+// ── Gem pickup ────────────────────────────────────────────
+function playGemSound() {
+  // Crystal shimmer — high sine cascade
+  [1000,1260,1600,2000,2520].forEach((f,i)=>{
+    playTone(f, 0.35-i*0.04, 'sine', 0.22-i*0.03, i*0.07);
+  });
+  // Sparkle noise
+  playFilteredNoise(0.08, 0.04, 8000, 4.0, 'highpass');
+  playFilteredNoise(0.05, 0.08, 5000, 2.0, 'bandpass', 0.05);
+  // Magic shimmer sweep
+  playSweep(600, 2400, 0.4, 0.12, 'sine', 0.1);
+}
+
+// ── Treasure chest ────────────────────────────────────────
+function playTreasureSound() {
+  // Heavy lid thud
+  playFilteredNoise(0.3, 0.12, 150, null, 'lowpass');
+  playFilteredNoise(0.15, 0.05, 600, null, 'lowpass', 0.06);
+  // Creak of lid
+  playSweep(160, 90, 0.3, 0.08, 'sawtooth', 0.08);
+  // Gold coins jingling
+  for (let i=0;i<8;i++) {
+    const f = 1800 + Math.random()*1200;
+    playTone(f, 0.06+Math.random()*0.04, 'sine', 0.09+Math.random()*0.04, 0.12+i*0.06+Math.random()*0.04);
+  }
+  // Triumphant low brass swell
+  [130,165,196,262].forEach((f,i)=>playTone(f, 0.5, 'sawtooth', 0.12, 0.25+i*0.07));
+}
+
+// ── Escape / victory ──────────────────────────────────────
+function playEscapeSound() {
+  // Rush of wind
+  playFilteredNoise(0.15, 0.4, 800, 0.5, 'bandpass');
+  // Rising horn
+  [330,392,494,587,659,784].forEach((f,i)=>playTone(f, 0.18, 'sine', 0.25, i*0.08));
+}
+
+function playLevelUp() {
+  // Fanfare — pirate trumpet
+  const melody = [523,659,784,1047,784,1047,1319];
+  melody.forEach((f,i) => {
+    playTone(f, 0.15, 'sawtooth', 0.22, i*0.13);
+    playTone(f*0.5, 0.15, 'sine', 0.08, i*0.13); // octave below
+  });
+  // Final chord
+  [523,659,784].forEach(f => playTone(f, 0.6, 'sine', 0.14, melody.length*0.13));
+  // Cheering noise burst
+  playFilteredNoise(0.12, 0.3, 1500, 0.6, 'bandpass', melody.length*0.13);
+}
+
+// ── Hiding ────────────────────────────────────────────────
+function playHideSound() {
+  // Soft rustle
+  playFilteredNoise(0.07, 0.12, 400, 0.5, 'bandpass');
+  playFilteredNoise(0.04, 0.08, 700, 0.4, 'bandpass', 0.05);
+  // Breath-hold low whoosh
+  playSweep(200, 80, 0.25, 0.04, 'sine', 0.08);
+  // Muffled thud of hiding
+  playFilteredNoise(0.06, 0.06, 200, null, 'lowpass', 0.1);
+}
+
+// ── Heartbeat — loud, physical, demon-proximity-driven ────────────────
+// intensity 0..1: controls volume, bass depth, and beat speed
+// demonClose true: adds an extra low-frequency demon-dread layer
+function playHeartbeat(intensity=1.0, demonClose=false) {
+  try {
+    const ac = getAudio();
+
+    // ── Dedicated heartbeat gain channel (bypasses master for punch) ──
+    const hbGain = ac.createGain();
+    hbGain.connect(ac.destination);           // direct to speakers
+    hbGain.gain.value = 0.55 + intensity * 0.95; // 0.55 → 1.5 — unmissably loud
+
+    const now = ac.currentTime;
+
+    // ── LUB — deep sub-bass thump ─────────────────────────────────────
+    const sub = ac.createOscillator();
+    const subG = ac.createGain();
+    sub.type = 'sine';
+    sub.frequency.value = 38 + intensity * 14;
+    sub.connect(subG); subG.connect(hbGain);
+    subG.gain.setValueAtTime(0.9 + intensity * 0.7, now);
+    subG.gain.exponentialRampToValueAtTime(0.001, now + 0.18 + intensity * 0.08);
+    sub.start(now); sub.stop(now + 0.30);
+
+    const mid = ac.createOscillator();
+    const midG = ac.createGain();
+    mid.type = 'sine';
+    mid.frequency.value = 70 + intensity * 20;
+    mid.connect(midG); midG.connect(hbGain);
+    midG.gain.setValueAtTime(0.65 + intensity * 0.55, now + 0.005);
+    midG.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+    mid.start(now + 0.005); mid.stop(now + 0.25);
+
+    const lubBuf = makeNoiseBuf(ac, 0.15, 0.25);
+    const lubSrc = ac.createBufferSource();
+    const lubFilt = ac.createBiquadFilter();
+    const lubG2 = ac.createGain();
+    lubFilt.type = 'lowpass'; lubFilt.frequency.value = 120 + intensity * 80;
+    lubSrc.buffer = lubBuf;
+    lubSrc.connect(lubFilt); lubFilt.connect(lubG2); lubG2.connect(hbGain);
+    lubG2.gain.setValueAtTime(0.7 + intensity * 0.65, now);
+    lubG2.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    lubSrc.start(now); lubSrc.stop(now + 0.16);
+
+    // ── DUB — shorter, slightly higher ────────────────────────────────
+    const dubDelay = 0.20 - intensity * 0.06;
+
+    const sub2 = ac.createOscillator();
+    const sub2G = ac.createGain();
+    sub2.type = 'sine';
+    sub2.frequency.value = 42 + intensity * 10;
+    sub2.connect(sub2G); sub2G.connect(hbGain);
+    sub2G.gain.setValueAtTime(0.7 + intensity * 0.55, now + dubDelay);
+    sub2G.gain.exponentialRampToValueAtTime(0.001, now + dubDelay + 0.14);
+    sub2.start(now + dubDelay); sub2.stop(now + dubDelay + 0.18);
+
+    const dubBuf = makeNoiseBuf(ac, 0.12, 0.3);
+    const dubSrc = ac.createBufferSource();
+    const dubFilt = ac.createBiquadFilter();
+    const dubG2 = ac.createGain();
+    dubFilt.type = 'lowpass'; dubFilt.frequency.value = 100;
+    dubSrc.buffer = dubBuf;
+    dubSrc.connect(dubFilt); dubFilt.connect(dubG2); dubG2.connect(hbGain);
+    dubG2.gain.setValueAtTime(0.55 + intensity * 0.45, now + dubDelay);
+    dubG2.gain.exponentialRampToValueAtTime(0.001, now + dubDelay + 0.12);
+    dubSrc.start(now + dubDelay); dubSrc.stop(now + dubDelay + 0.14);
+
+    // ── Demon-close layer: infrasonic dread pulse + crackle ───────────
+    if (demonClose) {
+      const dread = ac.createOscillator();
+      const dreadG = ac.createGain();
+      dread.type = 'sawtooth';
+      dread.frequency.value = 28 + intensity * 8;
+      dread.connect(dreadG); dreadG.connect(hbGain);
+      dreadG.gain.setValueAtTime(0.35 + intensity * 0.45, now);
+      dreadG.gain.exponentialRampToValueAtTime(0.001, now + 0.40);
+      dread.start(now); dread.stop(now + 0.44);
+
+      const crackBuf = makeNoiseBuf(ac, 0.08, 0.6);
+      const crackSrc = ac.createBufferSource();
+      const crackFilt = ac.createBiquadFilter();
+      const crackG = ac.createGain();
+      crackFilt.type = 'highpass'; crackFilt.frequency.value = 2200;
+      crackSrc.buffer = crackBuf;
+      crackSrc.connect(crackFilt); crackFilt.connect(crackG); crackG.connect(hbGain);
+      crackG.gain.setValueAtTime(0.28 + intensity * 0.3, now + 0.02);
+      crackG.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+      crackSrc.start(now + 0.02); crackSrc.stop(now + 0.12);
+    }
+
+    // ── Adrenaline shiver at high intensity ───────────────────────────
+    if (intensity > 0.55) {
+      const shiverBuf = makeNoiseBuf(ac, 0.05, 0.7);
+      const shiverSrc = ac.createBufferSource();
+      const shiverFilt = ac.createBiquadFilter();
+      const shiverG = ac.createGain();
+      shiverFilt.type = 'bandpass';
+      shiverFilt.frequency.value = 500 + intensity * 400;
+      shiverFilt.Q.value = 1.5;
+      shiverSrc.buffer = shiverBuf;
+      shiverSrc.connect(shiverFilt); shiverFilt.connect(shiverG); shiverG.connect(hbGain);
+      shiverG.gain.setValueAtTime((intensity - 0.55) * 0.45, now + 0.01);
+      shiverG.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+      shiverSrc.start(now + 0.01); shiverSrc.stop(now + 0.08);
+    }
+
+  } catch(e) {}
+}
+
+// ── Demon frog ────────────────────────────────────────────
+function playDemonSound() {
+  // Guttural croak base
+  playSweep(80, 55, 0.45, 0.5, 'sawtooth');
+  playSweep(110, 65, 0.3, 0.35, 'square', 0.1);
+  // Wet croak noise
+  playFilteredNoise(0.3, 0.25, 120, null, 'lowpass', 0.05);
+  // High screech overlay
+  playSweep(1200, 400, 0.2, 0.12, 'sawtooth', 0.15);
+  // Reverb tail
+  playFilteredNoise(0.08, 0.4, 300, 0.4, 'bandpass', 0.35);
+}
+
+// ── Frog pet chirp (periodically) ─────────────────────────
+let _frogChirpTimer = 8 + Math.random()*8;
+function maybePlayFrogChirp(dt) {
+  _frogChirpTimer -= dt;
+  if (_frogChirpTimer > 0) return;
+  _frogChirpTimer = 7 + Math.random()*10;
+  // Friendly little ribbit
+  playSweep(520, 380, 0.07, 0.09, 'sine');
+  playSweep(380, 480, 0.05, 0.07, 'sine', 0.08);
+  playSweep(480, 320, 0.06, 0.06, 'sine', 0.14);
+  playFilteredNoise(0.04, 0.04, 1000, 1.0, 'bandpass', 0.01);
+}
+
+// ── Wrong key buzz ────────────────────────────────────────
+function playWrongKeySound() {
+  playSweep(220, 110, 0.25, 0.35, 'sawtooth');
+  playSweep(200, 90, 0.2, 0.25, 'square', 0.05);
+  playFilteredNoise(0.12, 0.15, 200, null, 'lowpass', 0.02);
+}
+
+// ── Game over ─────────────────────────────────────────────
+function playGameOverSound() {
+  // Descending doom horn
+  [220,185,147,110,82].forEach((f,i) => {
+    playTone(f, 0.4, 'sawtooth', 0.28, i*0.18);
+    playTone(f*0.5, 0.4, 'sine', 0.12, i*0.18);
+  });
+  // Crash noise
+  playFilteredNoise(0.4, 0.35, 300, null, 'lowpass', 0.0);
+  playFilteredNoise(0.2, 0.5, 1500, 0.8, 'bandpass', 0.05);
+  // Distant thunder rumble
+  playFilteredNoise(0.15, 0.8, 80, null, 'lowpass', 0.3);
+}
+
+// ── Gem insertion ─────────────────────────────────────────
+function playGemInsertSound() {
+  // Click + lock
+  playFilteredNoise(0.15, 0.03, 3000, 2.0, 'highpass');
+  playFilteredNoise(0.2, 0.05, 500, null, 'lowpass', 0.02);
+  // Resonant shimmer
+  [440,554,659,880].forEach((f,i) => playTone(f, 0.4-i*0.05, 'sine', 0.18-i*0.03, i*0.06));
+  playSweep(300, 1200, 0.3, 0.1, 'sine', 0.05);
+}
+
+// ── Level start ───────────────────────────────────────────
+function playLevelStartSound() {
+  // Low ambient boom
+  playFilteredNoise(0.25, 0.5, 100, null, 'lowpass');
+  // Ominous chord
+  [82,98,110,130].forEach((f,i) => playTone(f, 1.0, 'sine', 0.1, i*0.12));
+  playSweep(200, 400, 0.5, 0.06, 'sine', 0.4);
+}
+
+// ── Constants ─────────────────────────────────────────────
+const ARENA_W = 40, ARENA_D = 40;
+const PLAYER_SPEED = 4.5;
+const SNEAK_SPEED = 1.9;
+const GUARD_BASE_SPEED = 2.6;
+const VISION_BASE = 9;
+const VISION_ANGLE = Math.PI * 0.52;
+
+// ── Obstacle System ───────────────────────────────────────
+// Each obstacle: {x, z, w, d} — axis-aligned bounding boxes
+const obstacles = [];
+function addObstacle(x, z, w, d) {
+  obstacles.push({ x, z, w: w/2 + 0.5, d: d/2 + 0.5 });
+}
+function clearObstacles() { obstacles.length = 0; }
+
+function resolveCollision(pos) {
+  const hw = ARENA_W/2 - 1.0;
+  const hd = ARENA_D/2 - 1.0;
+  pos.x = Math.max(-hw, Math.min(hw, pos.x));
+  pos.z = Math.max(-hd, Math.min(hd, pos.z));
+  for (const ob of obstacles) {
+    const dx = pos.x - ob.x;
+    const dz = pos.z - ob.z;
+    const px = ob.w - Math.abs(dx);
+    const pz = ob.d - Math.abs(dz);
+    if (px > 0 && pz > 0) {
+      if (px < pz) pos.x += px * Math.sign(dx);
+      else pos.z += pz * Math.sign(dz);
+    }
+  }
+  return pos;
+}
+
+// ── Level Definitions ─────────────────────────────────────
+const LEVEL_DEFS = [
+  {
+    id: 1, name: 'Port Skullport', theme: 'Port & Ship',
+    fog: { color: 0x04040f, density: 0.020 }, sky: 0x04040f,
+    ambient: { color: 0x1a2244, intensity: 1.5 },
+    moon: { color: 0x88aaee, intensity: 1.1 },
+    guardCount: 2, patrolSpeed: 0.65, visionMult: 0.72, angleMult: 0.75,
+    panicRiseMult: 0.45, panicDecayMult: 1.6, alertDecayMult: 1.8, soundSensBase: 0.6,
+    clue: '🏴‍☠️ All on the Port! Grab Key 1, Key 2 & the Gem — then use the gem on the right key!'
+  },
+  {
+    id: 2, name: 'Cursed Seashore', theme: 'Seashore',
+    fog: { color: 0x040820, density: 0.038 }, sky: 0x040820,
+    ambient: { color: 0x0a1020, intensity: 1.1 },
+    moon: { color: 0x4466aa, intensity: 0.7 },
+    guardCount: 4, patrolSpeed: 0.90, visionMult: 0.90, angleMult: 0.90,
+    panicRiseMult: 0.70, panicDecayMult: 1.2, alertDecayMult: 1.3, soundSensBase: 0.80,
+    clue: '🌊 Foggy shore — 4 guards. Find 2 Keys & 1 Gem, then insert gem into the right key!'
+  },
+  {
+    id: 3, name: 'The Great Hall', theme: 'Multi-floor Hall',
+    fog: { color: 0x090505, density: 0.032 }, sky: 0x090505,
+    ambient: { color: 0x150808, intensity: 1.0 },
+    moon: { color: 0x885533, intensity: 0.6 },
+    guardCount: 5, patrolSpeed: 1.15, visionMult: 1.10, angleMult: 1.05,
+    panicRiseMult: 1.0, panicDecayMult: 1.0, alertDecayMult: 1.0, soundSensBase: 1.0,
+    clue: '🏛️ The Hall echoes. Find all 3 items — the demon guards this floor!'
+  },
+  {
+    id: 4, name: 'The Dark Forest', theme: 'Forest',
+    fog: { color: 0x020a04, density: 0.055 }, sky: 0x020a04,
+    ambient: { color: 0x050a04, intensity: 0.8 },
+    moon: { color: 0x336622, intensity: 0.5 },
+    guardCount: 6, patrolSpeed: 1.35, visionMult: 0.85, angleMult: 1.20,
+    panicRiseMult: 1.3, panicDecayMult: 0.85, alertDecayMult: 0.85, soundSensBase: 1.2,
+    clue: '🌲 Dense forest. Wide guard cones. The demon lurks among trees!'
+  },
+  {
+    id: 5, name: 'Pyramid of the Damned', theme: 'Ancient Temple',
+    fog: { color: 0x0a0604, density: 0.042 }, sky: 0x0a0604,
+    ambient: { color: 0x1a0a05, intensity: 0.9 },
+    moon: { color: 0xaa5522, intensity: 0.7 },
+    guardCount: 7, patrolSpeed: 1.65, visionMult: 1.40, angleMult: 1.25,
+    panicRiseMult: 1.65, panicDecayMult: 0.65, alertDecayMult: 0.65, soundSensBase: 1.5,
+    clue: '🏛️ The Pyramid! 7 guards + the demon. Ultimate challenge...'
+  }
+];
+
+// ── Game State ─────────────────────────────────────────────
+let gameState = 'title';
+let score = 0;
+let currentLevel = 1;
+let keysCollected = 0;  // 0,1,2 — need both keys
+let gemCollected = false;
+let gemInserted = false;       // after gem+key puzzle
+let correctKeyForGem = 0;      // 0 or 1, randomised each level
+let hasTreasure = false;
+let panicMeter = 0;
+let alertTimer = 0;
+let clueTimeout = null;
+let isCrouching = false;
+let isSneaking = false;
+let isHiding = false;
+let lastTime = 0;
+let footstepTimer = 0;
+let noiseLevel = 0;
+let heartbeatTimer = 0;
+let cameraShake = new THREE.Vector3();
+let shakeIntensity = 0;
+let minimapVisible = true;
+let soundSensitivity = 1.0;
+
+// Ship box search state (Level 1)
+let shipBoxes = []; // {mesh, hasKey, hasGem, opened}
+let boxKey2Found = false;  // whether key2 was in a box and already granted
+let boxGemFound = false;
+let shipBoxModalOpen = false;
+let currentBoxInteractIdx = -1; // which box group player is near
+
+// Demon state
+let demonMesh = null;
+let demonPos = new THREE.Vector3();
+let demonTimer = 0;
+let demonVisible = false;
+
+// ── Input ─────────────────────────────────────────────────
+const keys = {};
+document.addEventListener('keydown', e => {
+  keys[e.code] = true;
+  if (gameState === 'play') {
+    if (e.code === 'KeyE') { e.preventDefault(); tryInteract(); }
+    if (e.code === 'Space') { e.preventDefault(); toggleCrouch(); }
+    if (e.code === 'KeyM') {
+      minimapVisible = !minimapVisible;
+      document.getElementById('minimap').style.opacity = minimapVisible ? '1' : '0';
+    }
+    if (e.code === 'KeyC') { cycleCameraMode(); }
+  }
+});
+document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+function cycleCameraMode() {
+  cameraMode = (cameraMode + 1) % 3;
+  const badge = document.getElementById('cam-badge');
+  badge.textContent = CAM_LABELS[cameraMode];
+  badge.style.borderColor = cameraMode === 2 ? 'rgba(255,150,0,.8)' : 'rgba(0,200,255,.5)';
+  showClue(`📷 Camera: ${CAM_LABELS[cameraMode]}`, 2000);
+}
+
+// ── Materials ─────────────────────────────────────────────
+const MAT = {
+  floor:   new THREE.MeshLambertMaterial({ color: 0x2a1a0e }),
+  wall:    new THREE.MeshLambertMaterial({ color: 0x4a3020 }),
+  wallAlt: new THREE.MeshLambertMaterial({ color: 0x3a2810 }),
+  barrel:  new THREE.MeshLambertMaterial({ color: 0x6a3010 }),
+  crate:   new THREE.MeshLambertMaterial({ color: 0x9a6618 }),
+  wood:    new THREE.MeshLambertMaterial({ color: 0x5a3010 }),
+  gold:    new THREE.MeshLambertMaterial({ color: 0xf5c842, emissive: 0xf5c842, emissiveIntensity: 0.3 }),
+  red:     new THREE.MeshLambertMaterial({ color: 0xc8102e }),
+  blue:    new THREE.MeshLambertMaterial({ color: 0x1a237e }),
+  skin:    new THREE.MeshLambertMaterial({ color: 0xfad5a5 }),
+  black:   new THREE.MeshLambertMaterial({ color: 0x111111 }),
+  green:   new THREE.MeshLambertMaterial({ color: 0x2d5a1b }),
+  stone:   new THREE.MeshLambertMaterial({ color: 0x554433 }),
+  moss:    new THREE.MeshLambertMaterial({ color: 0x3a5a30 }),
+  sand:    new THREE.MeshLambertMaterial({ color: 0xa0895a }),
+  water:   new THREE.MeshLambertMaterial({ color: 0x0a2444, emissive: 0x001122, emissiveIntensity: 0.3 }),
+  key:     new THREE.MeshLambertMaterial({ color: 0xf5c842, emissive: 0xf5c842, emissiveIntensity: 0.8 }),
+  gem:     new THREE.MeshLambertMaterial({ color: 0xcc44ff, emissive: 0x9900cc, emissiveIntensity: 0.9 }),
+  treasure:new THREE.MeshLambertMaterial({ color: 0xff9900, emissive: 0xff6600, emissiveIntensity: 0.7 }),
+  exit:    new THREE.MeshLambertMaterial({ color: 0x00ff64, emissive: 0x00ff64, emissiveIntensity: 0.6, transparent:true, opacity:0.75 }),
+  treeTrunk: new THREE.MeshLambertMaterial({ color: 0x3a2010 }),
+  treeLeaf:  new THREE.MeshLambertMaterial({ color: 0x1a3a10, transparent:true, opacity:0.9 }),
+  pyramid:   new THREE.MeshLambertMaterial({ color: 0x7a5a30 }),
+  pyramidAlt:new THREE.MeshLambertMaterial({ color: 0x5a3a18 }),
+  seaRock:   new THREE.MeshLambertMaterial({ color: 0x2a2520 }),
+  hull:      new THREE.MeshLambertMaterial({ color: 0x2a1808 }),
+  sail:      new THREE.MeshLambertMaterial({ color: 0xe8ddb5, side: THREE.DoubleSide }),
+};
+
+// ── Helper ────────────────────────────────────────────────
+function box(w,h,d,mat,x,y,z,rx=0,ry=0,rz=0,cs=true,rs=true) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); m.rotation.set(rx,ry,rz);
+  if(cs) m.castShadow=true; if(rs) m.receiveShadow=true;
+  scene.add(m); return m;
+}
+
+// ── World meshes & spots ──────────────────────────────────
+let worldMeshes = [];
+let hidingSpots = [];
+let lanternLights = [];
+
+function wo(m) { m.userData.worldObj=true; worldMeshes.push(m); return m; }
+
+function clearWorld() {
+  worldMeshes.forEach(m => scene.remove(m));
+  worldMeshes = [];
+  hidingSpots = [];
+  lanternLights.length = 0;
+  keyObjects.forEach(k => { scene.remove(k.mesh); if(k.light) scene.remove(k.light); });
+  keyObjects.length = 0;
+  keyLights.length = 0;
+  if (gemMesh) { if(gemMesh.userData.extraLight) scene.remove(gemMesh.userData.extraLight); scene.remove(gemMesh); if(gemLight) scene.remove(gemLight); gemMesh=null; gemLight=null; }
+  if (treasureMesh) { scene.remove(treasureMesh); treasureMesh=null; }
+  if (treasureLight) { scene.remove(treasureLight); treasureLight=null; }
+  if (exitMesh) { scene.remove(exitMesh); exitMesh=null; }
+  if (exitLight) { scene.remove(exitLight); exitLight=null; }
+  if (demonMesh) { scene.remove(demonMesh); demonMesh=null; }
+  scene.children.filter(c => c.userData.worldObj).forEach(c => scene.remove(c));
+  clearObstacles();
+  shipBoxes = [];
+  boxKey2Found = false;
+  boxGemFound = false;
+}
+
+// ── Lighting ─────────────────────────────────────────────
+let moonLight = null, ambientLight = null;
+function setupLighting(lvlDef) {
+  if (ambientLight) scene.remove(ambientLight);
+  if (moonLight) scene.remove(moonLight);
+  ambientLight = new THREE.AmbientLight(lvlDef.ambient.color, lvlDef.ambient.intensity);
+  scene.add(ambientLight);
+  moonLight = new THREE.DirectionalLight(lvlDef.moon.color, lvlDef.moon.intensity);
+  moonLight.position.set(-10, 20, 10);
+  moonLight.castShadow = true;
+  moonLight.shadow.mapSize.width = 2048;
+  moonLight.shadow.mapSize.height = 2048;
+  moonLight.shadow.camera.left = -50; moonLight.shadow.camera.right = 50;
+  moonLight.shadow.camera.top = 50; moonLight.shadow.camera.bottom = -50;
+  scene.add(moonLight);
+  scene.background = new THREE.Color(lvlDef.sky);
+  renderer.fog = new THREE.FogExp2(lvlDef.fog.color, lvlDef.fog.density);
+}
+
+function buildStars() {
+  const geo = new THREE.BufferGeometry();
+  const verts = [];
+  for(let i=0;i<350;i++) verts.push((Math.random()-.5)*250, 30+Math.random()*60, (Math.random()-.5)*250);
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(verts,3));
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({color:0xffffff,size:0.22,transparent:true,opacity:0.7}));
+  scene.add(stars); stars.userData.worldObj=true; worldMeshes.push(stars);
+}
+
+function addLantern(x,y,z,color=0xffaa33) {
+  const light = new THREE.PointLight(color, 1.5, 13);
+  light.position.set(x,y,z); scene.add(light);
+  lanternLights.push(light);
+  const core = box(0.28,0.45,0.28,MAT.gold,x,y-0.22,z,0,0,0,false,false);
+  core.userData.worldObj=true;
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(0.33,0.5,0.33), new THREE.MeshLambertMaterial({color:0x222222,wireframe:true}));
+  frame.position.set(x,y-0.22,z); scene.add(frame); frame.userData.worldObj=true;
+  light.userData.worldObj=true;
+}
+
+// ── Collectibles ──────────────────────────────────────────
+const keyObjects = [];
+let keyLights = [];
+let gemMesh = null, gemLight = null;
+let treasureMesh = null, treasureLight = null, treasureUnlocked = false;
+let exitMesh = null, exitLight = null, exitActive = false;
+
+const EXIT_POS = new THREE.Vector3(-16, 0, 16);
+
+function spawnKey(x, z, idx) {
+  const keyMat = new THREE.MeshLambertMaterial({color:0xf5c842, emissive:0xf5c842, emissiveIntensity:0.85});
+  const shimMat = new THREE.MeshLambertMaterial({color:0xffd700, emissive:0xffa500, emissiveIntensity:0.5});
+  const grp = new THREE.Group();
+
+  // Bow ring
+  const bow = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.09, 10, 18), keyMat);
+  bow.position.set(0, 0.28, 0); grp.add(bow);
+
+  // Inner decorative ring
+  const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.14, 0.04, 8, 12), shimMat);
+  innerRing.position.set(0, 0.28, 0); grp.add(innerRing);
+
+  // Shaft
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.78, 0.09), keyMat);
+  shaft.position.set(0, -0.10, 0); grp.add(shaft);
+
+  // Collar
+  const collar = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.11), keyMat);
+  collar.position.set(0, 0.01, 0); grp.add(collar);
+
+  // Teeth (3 bits at different depths)
+  [[0.13, -0.28, 0.07],[0.10, -0.42, 0.07],[0.15, -0.56, 0.07]].forEach(([tw, ty, td]) => {
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(tw, 0.10, td), keyMat);
+    tooth.position.set(tw * 0.5 + 0.055, ty, 0); grp.add(tooth);
+  });
+
+  // Tip cap
+  const tip = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.07, 0.09), keyMat);
+  tip.position.set(0, -0.52, 0); grp.add(tip);
+
+  grp.position.set(x, 1.2, z);
+  grp.rotation.x = Math.PI / 2;
+  grp.castShadow = true;
+  scene.add(grp);
+
+  const light = new THREE.PointLight(0xf5c842, 2.0, 5);
+  light.position.set(x, 1.2, z); scene.add(light);
+  keyObjects.push({ mesh: grp, light, position: new THREE.Vector3(x, 1.2, z), collected: false, idx });
+  keyLights.push(light);
+}
+
+function spawnGem(x, z) {
+  // Build a realistic multi-faceted gem using a Group of faces
+  const gemGrp = new THREE.Group();
+
+  // Main gem body — elongated octahedron (the crown + pavilion)
+  const crownMat = new THREE.MeshLambertMaterial({color:0xdd22ff, emissive:0xaa00dd, emissiveIntensity:1.1, transparent:true, opacity:0.92});
+  const pavMat   = new THREE.MeshLambertMaterial({color:0xbb00ee, emissive:0x8800aa, emissiveIntensity:0.9, transparent:true, opacity:0.88});
+  const tableMat = new THREE.MeshLambertMaterial({color:0xff88ff, emissive:0xee44ff, emissiveIntensity:1.3});
+  const girMat   = new THREE.MeshLambertMaterial({color:0xee66ff, emissive:0xcc33ff, emissiveIntensity:0.7});
+  const facetMat = new THREE.MeshLambertMaterial({color:0xcc00ff, emissive:0x9900cc, emissiveIntensity:0.8, transparent:true, opacity:0.75});
+
+  // Crown (upper half, wider)
+  const crown = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.38, 8, 1), crownMat);
+  crown.position.set(0, 0.19, 0); crown.rotation.y = Math.PI/8; gemGrp.add(crown);
+
+  // Table (flat top face)
+  const table = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.04, 8), tableMat);
+  table.position.set(0, 0.39, 0); table.rotation.y = Math.PI/8; gemGrp.add(table);
+
+  // Girdle (thin band at widest point)
+  const girdle = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.06, 8), girMat);
+  girdle.position.set(0, -0.01, 0); girdle.rotation.y = Math.PI/8; gemGrp.add(girdle);
+
+  // Pavilion (lower half, narrowing to a point)
+  const pavilion = new THREE.Mesh(new THREE.ConeGeometry(0.42, 0.55, 8, 1), pavMat);
+  pavilion.position.set(0, -0.29, 0); pavilion.rotation.y = Math.PI/8;
+  pavilion.rotation.x = Math.PI; gemGrp.add(pavilion);
+
+  // Star facets around crown — 4 thin triangular glints
+  for (let i = 0; i < 4; i++) {
+    const facet = new THREE.Mesh(new THREE.ConeGeometry(0.10, 0.22, 3, 1), facetMat);
+    const angle = (i / 4) * Math.PI * 2;
+    facet.position.set(Math.cos(angle)*0.22, 0.28, Math.sin(angle)*0.22);
+    facet.rotation.z = Math.PI;
+    facet.rotation.y = angle;
+    gemGrp.add(facet);
+  }
+
+  gemGrp.position.set(x, 1.3, z);
+  gemGrp.castShadow = true;
+  scene.add(gemGrp);
+  gemMesh = gemGrp;
+
+  // Coloured light glow underneath
+  gemLight = new THREE.PointLight(0xcc44ff, 2.5, 7);
+  gemLight.position.set(x, 1.4, z); scene.add(gemLight);
+
+  // Second soft bounce light
+  const gemLight2 = new THREE.PointLight(0xff44ff, 0.8, 4);
+  gemLight2.position.set(x, 0.8, z); scene.add(gemLight2);
+  gemGrp.userData.extraLight = gemLight2;
+}
+
+function spawnTreasure(x, z) {
+  const geo = new THREE.BoxGeometry(1.0, 0.7, 0.8);
+  treasureMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({color:0x6a3010}));
+  treasureMesh.position.set(x, 0.55, z); treasureMesh.castShadow=true; scene.add(treasureMesh);
+  const lid = box(1.0,0.3,0.8,MAT.crate,x,1.05,z-0.1,0.3,0,0,false,false);
+  lid.userData.worldObj=true; worldMeshes.push(lid);
+  const gleam = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.2,0.5), MAT.gold);
+  gleam.position.set(x,0.85,z); scene.add(gleam); wo(gleam);
+  treasureLight = new THREE.PointLight(0xff9900, 0, 7);
+  treasureLight.position.set(x,1.5,z); scene.add(treasureLight);
+  treasureUnlocked = false;
+}
+
+function spawnExit(x, z) {
+  const geo = new THREE.CylinderGeometry(2.2, 2.2, 0.18, 16);
+  exitMesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({color:0x00ff64,emissive:0x00ff64,emissiveIntensity:0.5,transparent:true,opacity:0.7}));
+  exitMesh.position.set(x, 0.1, z); scene.add(exitMesh);
+  exitLight = new THREE.PointLight(0x00ff64, 0, 10);
+  exitLight.position.set(x,1,z); scene.add(exitLight);
+  exitActive = false;
+}
+
+// ── Ship Builder (proper galleon) ─────────────────────────
+function buildShip(cx, cz) {
+  // Hull — wide flat deck
+  const hull = wo(box(14, 2, 6, MAT.hull, cx, 0.5, cz));
+  addObstacle(cx, cz, 14, 6);
+
+  // Raised bow
+  wo(box(3, 3, 6, MAT.hull, cx+7, 1, cz));
+  addObstacle(cx+7, cz, 3, 6);
+  // Raised stern
+  wo(box(3, 3.5, 6, MAT.hull, cx-7, 1.5, cz));
+  addObstacle(cx-7, cz, 3, 6);
+
+  // Side railings
+  wo(box(14, 0.5, 0.3, MAT.wood, cx, 1.75, cz-3));
+  wo(box(14, 0.5, 0.3, MAT.wood, cx, 1.75, cz+3));
+
+  // Masts
+  wo(box(0.35, 8, 0.35, MAT.wood, cx+2, 5, cz));
+  wo(box(0.35, 6, 0.35, MAT.wood, cx-3, 4, cz));
+
+  // Sails
+  const sailMat = new THREE.MeshLambertMaterial({color:0xe8ddb5,side:THREE.DoubleSide});
+  const sail1 = new THREE.Mesh(new THREE.PlaneGeometry(3.5, 4), sailMat);
+  sail1.position.set(cx+2, 6.5, cz); sail1.rotation.y=0.1; scene.add(sail1); wo(sail1);
+  const sail2 = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 3.2), sailMat);
+  sail2.position.set(cx-3, 5.5, cz); sail2.rotation.y=-0.1; scene.add(sail2); wo(sail2);
+
+  // Crow's nest
+  wo(box(1.5, 0.3, 1.5, MAT.wood, cx+2, 9.2, cz));
+
+  // Cannon
+  const barrelMat = new THREE.MeshLambertMaterial({color:0x333333});
+  const cannon = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.3, 1.5, 8), barrelMat);
+  cannon.rotation.z = Math.PI/2; cannon.position.set(cx+5, 1.7, cz+2.5); scene.add(cannon); wo(cannon);
+
+  // Ship boxes (for Key2 / Gem hunting) — 4 boxes on deck
+  const boxPositions = [
+    [cx+1, cz-1.5], [cx+1, cz+1.5],
+    [cx-2, cz-1.5], [cx-2, cz+1.5],
+  ];
+  // Randomise which box has key2 and which has gem
+  const key2BoxIdx = Math.floor(Math.random() * 4);
+  let gemBoxIdx;
+  do { gemBoxIdx = Math.floor(Math.random() * 4); } while (gemBoxIdx === key2BoxIdx);
+
+  shipBoxes = [];
+  boxPositions.forEach(([bx, bz], i) => {
+    const bm = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshLambertMaterial({color:0x8a5618}));
+    bm.position.set(bx, 2.0, bz); bm.castShadow=true; scene.add(bm); wo(bm);
+    // Lid
+    const lid = new THREE.Mesh(new THREE.BoxGeometry(1,0.15,1), new THREE.MeshLambertMaterial({color:0xa06820}));
+    lid.position.set(bx, 2.55, bz); scene.add(lid); wo(lid);
+    shipBoxes.push({
+      mesh: bm, lid,
+      position: new THREE.Vector3(bx, 1.5, bz),
+      hasKey: i === key2BoxIdx,
+      hasGem: i === gemBoxIdx,
+      opened: false,
+      groupIdx: i,
+    });
+  });
+
+  // Lanterns on ship
+  addLantern(cx+2, 3, cz-2.5, 0xffaa33);
+  addLantern(cx-2, 3, cz+2.5, 0xffaa33);
+
+  hidingSpots.push({ position: new THREE.Vector3(cx, 1.5, cz), radius: 4, label: 'Ship Deck' });
+}
+
+// ── Border Walls ──────────────────────────────────────────
+function buildBorderWalls(color) {
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const wallH = 4;
+  [[ARENA_W,wallH,1,0,wallH/2,-ARENA_D/2],
+   [ARENA_W,wallH,1,0,wallH/2, ARENA_D/2],
+   [1,wallH,ARENA_D,-ARENA_W/2,wallH/2,0],
+   [1,wallH,ARENA_D, ARENA_W/2,wallH/2,0]
+  ].forEach(([w,h,d,x,y,z]) => wo(box(w,h,d,mat,x,y,z)));
+}
+
+function addBarrels(x,z) {
+  const grp = new THREE.Group();
+  [[-0.7,0,0],[0.7,0,0],[0,0,0.7]].forEach(([bx,by,bz]) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.52,0.52,1.2,8), MAT.barrel);
+    m.position.set(bx,0.6,bz); grp.add(m);
+  });
+  grp.position.set(x,0,z); scene.add(grp); grp.userData.worldObj=true; worldMeshes.push(grp);
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:2.0, label:'Barrel Stack' });
+  addObstacle(x, z, 2.5, 2.5);
+}
+
+function addCrates(x,z) {
+  const grp = new THREE.Group();
+  [[0,0.6,0],[0.85,0.6,0],[0,0.6,0.85]].forEach(([cx,cy,cz]) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.85,0.85,0.85), MAT.crate);
+    m.position.set(cx,cy,cz); grp.add(m);
+  });
+  grp.position.set(x,0,z); scene.add(grp); grp.userData.worldObj=true; worldMeshes.push(grp);
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:1.8, label:'Crate Stack' });
+  addObstacle(x, z, 2.2, 2.2);
+}
+
+function addPillar(x,z,mat=MAT.wallAlt) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.55,0.65,4.5,8), mat);
+  m.position.set(x,2.25,z); scene.add(m); m.userData.worldObj=true; worldMeshes.push(m);
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:1.3, label:'Stone Pillar' });
+  addObstacle(x, z, 1.5, 1.5);
+}
+
+function addWall(x,z,horiz,len,mat=MAT.wall) {
+  const w=horiz?len:0.8, d=horiz?0.8:len;
+  const m = wo(box(w,2,d,mat,x,1,z));
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:2.0, label:'Stone Wall' });
+  addObstacle(x, z, w+0.2, d+0.2);
+}
+
+function addTree(x,z) {
+  wo(box(0.45,3,0.45,MAT.treeTrunk,x,1.5,z));
+  const l1 = new THREE.Mesh(new THREE.ConeGeometry(2.2,3.5,8), MAT.treeLeaf);
+  l1.position.set(x,4.5,z); scene.add(l1); wo(l1);
+  const l2 = new THREE.Mesh(new THREE.ConeGeometry(1.8,3,8), MAT.treeLeaf);
+  l2.position.set(x,6.5,z); scene.add(l2); wo(l2);
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:2.0, label:'Dense Tree' });
+  addObstacle(x, z, 2.0, 2.0);
+}
+
+function addRock(x,z,s=1) {
+  const geo = new THREE.DodecahedronGeometry(s*0.9,0);
+  const m = new THREE.Mesh(geo, MAT.seaRock);
+  m.position.set(x,s*0.4,z); m.rotation.y=Math.random()*Math.PI;
+  scene.add(m); wo(m);
+  hidingSpots.push({ position:new THREE.Vector3(x,0,z), radius:s*1.2, label:'Rock Formation' });
+  addObstacle(x, z, s*2, s*2);
+}
+
+// ── Demon Sprite ──────────────────────────────────────────
+function spawnDemon(x, z) {
+  const texture = new THREE.TextureLoader().load(DEMON_IMG_CLEAN);
+  const geo = new THREE.PlaneGeometry(2.5, 2.5);
+  const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: 0.05, side: THREE.DoubleSide, depthWrite: false });
+  demonMesh = new THREE.Mesh(geo, mat);
+  demonMesh.position.set(x, 1.5, z);
+  scene.add(demonMesh);
+  demonPos.set(x, 1.5, z);
+}
+
+function updateDemon(dt, t) {
+  if (!demonMesh) return;
+  // Always face camera (billboard)
+  demonMesh.lookAt(camera.position);
+
+  demonTimer -= dt;
+  if (demonTimer <= 0) {
+    demonTimer = 4 + Math.random() * 8;
+    // Teleport to random location near player
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 6 + Math.random() * 8;
+    demonPos.x = playerPos.x + Math.cos(angle) * dist;
+    demonPos.z = playerPos.z + Math.sin(angle) * dist;
+    demonPos.x = Math.max(-ARENA_W/2+2, Math.min(ARENA_W/2-2, demonPos.x));
+    demonPos.z = Math.max(-ARENA_D/2+2, Math.min(ARENA_D/2-2, demonPos.z));
+    demonMesh.position.set(demonPos.x, 1.5 + Math.sin(t)*0.3, demonPos.z);
+  } else {
+    demonMesh.position.y = 1.5 + Math.sin(t * 2) * 0.25;
+  }
+
+  // Demon proximity effect
+  const distToDemon = playerPos.distanceTo(demonPos);
+  if (distToDemon < 4) {
+    panicMeter = Math.min(1, panicMeter + dt * 0.8);
+    if (distToDemon < 2) {
+      playDemonSound();
+      showDemonWarning();
+    }
+  }
+}
+
+let demonWarningTimer = 0;
+function showDemonWarning() {
+  const dw = document.getElementById('demon-warning');
+  document.getElementById('demon-img').src = DEMON_IMG_CLEAN;
+  dw.classList.add('show');
+  demonWarningTimer = 60;
+}
+
+// ── Guard System ──────────────────────────────────────────
+const guards = [];
+const GUARD_CFG = {
+  ghost:   { body:0xaaddff, leg:0x88bbdd },
+  warrior: { body:0x8b0000, leg:0x4a0000 },
+  captain: { body:0x1a3a6a, leg:0x0a1a3a },
+  brute:   { body:0x2d5a1b, leg:0x1a2c0e },
+};
+
+const GUARD_PATROLS = [
+  // L1 — Port
+  [
+    {type:'warrior', x:-8, z:-8, patrol:[{x:-14,z:-14},{x:0,z:-14},{x:0,z:-4},{x:-14,z:-4}]},
+    {type:'warrior', x: 8, z: 8, patrol:[{x:4,z:4},{x:14,z:4},{x:14,z:14},{x:4,z:14}]},
+  ],
+  // L2 — Seashore
+  [
+    {type:'ghost',  x:-6,z:-4, patrol:[{x:-14,z:-8},{x:0,z:-8},{x:0,z:4},{x:-14,z:4}]},
+    {type:'warrior',x: 6,z:-4, patrol:[{x:2,z:-12},{x:14,z:-4},{x:14,z:6},{x:2,z:6}]},
+    {type:'ghost',  x: 0,z: 8, patrol:[{x:-8,z:4},{x:8,z:4},{x:8,z:14},{x:-8,z:14}]},
+    {type:'captain',x:-8,z: 2, patrol:[{x:-14,z:0},{x:-4,z:0},{x:-4,z:14},{x:-14,z:14}]},
+  ],
+  // L3 — Hall
+  [
+    {type:'captain',x:-8,z:-8, patrol:[{x:-14,z:-14},{x:0,z:-14},{x:0,z:0},{x:-14,z:0}]},
+    {type:'warrior',x: 8,z:-8, patrol:[{x:0,z:-14},{x:14,z:-14},{x:14,z:0},{x:0,z:0}]},
+    {type:'ghost',  x:-8,z: 8, patrol:[{x:-14,z:0},{x:0,z:0},{x:0,z:14},{x:-14,z:14}]},
+    {type:'brute',  x: 8,z: 8, patrol:[{x:0,z:0},{x:14,z:0},{x:14,z:14},{x:0,z:14}]},
+    {type:'warrior',x: 0,z: 0, patrol:[{x:-8,z:0},{x:0,z:-8},{x:8,z:0},{x:0,z:8}]},
+  ],
+  // L4 — Forest
+  [
+    {type:'ghost',  x:-8,z:-6, patrol:[{x:-14,z:-8},{x:-4,z:-8},{x:-4,z:0},{x:-14,z:0}]},
+    {type:'brute',  x: 8,z:-6, patrol:[{x:4,z:-8},{x:14,z:-4},{x:14,z:4},{x:4,z:4}]},
+    {type:'ghost',  x: 0,z: 8, patrol:[{x:-6,z:4},{x:6,z:4},{x:6,z:14},{x:-6,z:14}]},
+    {type:'captain',x:-8,z: 4, patrol:[{x:-14,z:0},{x:-4,z:0},{x:-4,z:8},{x:-14,z:8}]},
+    {type:'ghost',  x: 4,z:-4, patrol:[{x:0,z:-8},{x:8,z:-8},{x:8,z:0},{x:0,z:0}]},
+    {type:'warrior',x: 6,z: 6, patrol:[{x:4,z:4},{x:14,z:4},{x:14,z:14},{x:4,z:14}]},
+  ],
+  // L5 — Pyramid
+  [
+    {type:'captain',x:-8,z:-8, patrol:[{x:-14,z:-14},{x:0,z:-14},{x:0,z:0},{x:-14,z:0}]},
+    {type:'ghost',  x: 8,z:-8, patrol:[{x:0,z:-14},{x:14,z:-8},{x:14,z:0},{x:0,z:0}]},
+    {type:'brute',  x:-8,z: 8, patrol:[{x:-14,z:0},{x:0,z:0},{x:0,z:14},{x:-14,z:14}]},
+    {type:'captain',x: 8,z: 8, patrol:[{x:0,z:0},{x:14,z:0},{x:14,z:14},{x:0,z:14}]},
+    {type:'ghost',  x: 0,z:-4, patrol:[{x:-8,z:0},{x:0,z:-8},{x:8,z:0},{x:0,z:8}]},
+    {type:'brute',  x:-4,z: 0, patrol:[{x:-6,z:-6},{x:6,z:-6},{x:6,z:6},{x:-6,z:6}]},
+    {type:'warrior',x: 4,z: 4, patrol:[{x:2,z:2},{x:10,z:2},{x:10,z:10},{x:2,z:10}]},
+  ],
+];
+
+function createGuard(type, x, z, patrol, lvlDef) {
+  const cfg = GUARD_CFG[type] || GUARD_CFG.warrior;
+  const grp = new THREE.Group();
+  const bodyMat = new THREE.MeshLambertMaterial({color:cfg.body,transparent:type==='ghost',opacity:type==='ghost'?0.82:1});
+  const legMat  = new THREE.MeshLambertMaterial({color:cfg.leg});
+  const skinMat = new THREE.MeshLambertMaterial({color:0xfad5a5});
+  const blackMat= new THREE.MeshLambertMaterial({color:0x111111});
+
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.8,1,0.55), bodyMat);
+  grp.add(body);
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.75,0.4), legMat);
+  legL.position.set(-0.25,-0.88,0); grp.add(legL);
+  const legR = legL.clone(); legR.position.set(0.25,-0.88,0); grp.add(legR);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.65,0.65,0.6), type==='ghost'?bodyMat:skinMat);
+  head.position.set(0,0.82,0); grp.add(head);
+
+  if (type==='ghost') {
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(1.0,8,8), new THREE.MeshLambertMaterial({color:0x88ccff,transparent:true,opacity:0.07}));
+    grp.add(glow);
+  } else if (type==='captain') {
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(0.95,0.12,0.78), blackMat);
+    brim.position.set(0,1.2,0); grp.add(brim);
+    const crown = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.5,0.55), blackMat);
+    crown.position.set(0,1.55,0); grp.add(crown);
+  } else if (type==='warrior') {
+    const helm = new THREE.Mesh(new THREE.BoxGeometry(0.7,0.45,0.65), new THREE.MeshLambertMaterial({color:0x555555}));
+    helm.position.set(0,1.18,0); grp.add(helm);
+  } else {
+    const bandana = new THREE.Mesh(new THREE.BoxGeometry(0.68,0.2,0.62), new THREE.MeshLambertMaterial({color:0xdd3311}));
+    bandana.position.set(0,1.05,0); grp.add(bandana);
+  }
+
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.25,0.7,0.32), bodyMat);
+  armL.position.set(-0.56,0.1,0); grp.add(armL);
+  const armR = armL.clone(); armR.position.set(0.56,0.1,0); grp.add(armR);
+  const eyeMat = new THREE.MeshLambertMaterial({color:0xff2222,emissive:0xff0000,emissiveIntensity:type==='ghost'?1.2:0.8});
+  const eL = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,0.06), eyeMat);
+  eL.position.set(-0.17,0.86,0.31); grp.add(eL);
+  const eR = eL.clone(); eR.position.set(0.17,0.86,0.31); grp.add(eR);
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(0.01,1,3), new THREE.MeshLambertMaterial({color:0xffaa00,transparent:true,opacity:0.15,side:THREE.DoubleSide}));
+  cone.position.set(0,0.3,0); grp.userData.coneMesh=cone; grp.add(cone);
+  const alertMark = new THREE.Mesh(new THREE.PlaneGeometry(0.8,0.8), new THREE.MeshLambertMaterial({color:0xff0000,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  alertMark.position.set(0,2.2,0); grp.userData.alertMark=alertMark; grp.add(alertMark);
+
+  grp.position.set(x,1.2,z); scene.add(grp);
+  guards.push({
+    mesh:grp, type, pos:new THREE.Vector3(x,1.2,z), facing:0,
+    speed:GUARD_BASE_SPEED*lvlDef.patrolSpeed,
+    visionRange:VISION_BASE*lvlDef.visionMult,
+    visionAngle:VISION_ANGLE*lvlDef.angleMult,
+    alertLevel:0, patrol, patrolIdx:0, walkFrame:0,
+    lastAlertSound:0, legL, legR, armL, armR,
+    coneMesh:cone, alertMark, searchTarget:null, searchTime:0,
+  });
+}
+
+function buildGuardFrog(parentGroup) {
+  // Small frog riding on the guard's left shoulder
+  const fg = new THREE.Group();
+
+  const bodyMat  = new THREE.MeshLambertMaterial({color:0x2ea840, emissive:0x0f4a18, emissiveIntensity:0.3});
+  const bellyMat = new THREE.MeshLambertMaterial({color:0x88e87a});
+  const darkMat  = new THREE.MeshLambertMaterial({color:0x1a6828});
+  const eyeMat   = new THREE.MeshLambertMaterial({color:0xffdd00, emissive:0xbb9900, emissiveIntensity:0.7});
+  const pupilMat = new THREE.MeshLambertMaterial({color:0x060606});
+  const tongMat  = new THREE.MeshLambertMaterial({color:0xff4466, emissive:0xcc1133, emissiveIntensity:0.4});
+
+  // Body
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.14,0.18), bodyMat);
+  fg.add(body);
+  // Belly
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.10,0.18), bellyMat);
+  belly.position.set(0,-0.01,0.01); fg.add(belly);
+  // Head
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.24,0.13,0.16), bodyMat);
+  head.position.set(0,0.12,0.01); fg.add(head);
+  // Wide grin line
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.17,0.025,0.17), darkMat);
+  mouth.position.set(0,0.055,0.015); fg.add(mouth);
+  // Tongue sticking out (menacing!)
+  const tongue = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.02,0.06), tongMat);
+  tongue.position.set(0,0.04,0.09); fg.add(tongue);
+  // Eye bulges
+  const ebL = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.08), bodyMat);
+  ebL.position.set(-0.08,0.19,0.0); fg.add(ebL);
+  const ebR = ebL.clone(); ebR.position.set(0.08,0.19,0.0); fg.add(ebR);
+  // Irises
+  const irL = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,0.09), eyeMat);
+  irL.position.set(-0.08,0.19,0.03); fg.add(irL);
+  const irR = irL.clone(); irR.position.set(0.08,0.19,0.03); fg.add(irR);
+  // Pupils
+  const puL = new THREE.Mesh(new THREE.BoxGeometry(0.03,0.03,0.10), pupilMat);
+  puL.position.set(-0.08,0.19,0.05); fg.add(puL);
+  const puR = puL.clone(); puR.position.set(0.08,0.19,0.05); fg.add(puR);
+  // Front feet
+  const ffl = new THREE.Mesh(new THREE.BoxGeometry(0.055,0.055,0.10), darkMat);
+  ffl.position.set(-0.13,-0.08,0.05); fg.add(ffl);
+  const ffr = ffl.clone(); ffr.position.set(0.13,-0.08,0.05); fg.add(ffr);
+  // Back haunches
+  const hL = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.09,0.08), bodyMat);
+  hL.position.set(-0.13,-0.05,-0.07); fg.add(hL);
+  const hR = hL.clone(); hR.position.set(0.13,-0.05,-0.07); fg.add(hR);
+  // Tiny evil spike on head (crown of thorns vibe)
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.015,0.06,4), darkMat);
+  spike.position.set(0,0.25,0); fg.add(spike);
+
+  // Sit on left shoulder
+  fg.position.set(-0.56, 0.44, 0.0);
+  fg.scale.setScalar(0.78);
+  parentGroup.add(fg);
+  parentGroup.userData.guardFrog = fg;
+}
+
+function spawnGuards(lvlIdx) {
+  guards.forEach(g => scene.remove(g.mesh));
+  guards.length = 0;
+  const lvlDef = LEVEL_DEFS[lvlIdx];
+  const patrols = GUARD_PATROLS[lvlIdx] || GUARD_PATROLS[0];
+  patrols.forEach(g => createGuard(g.type, g.x, g.z, g.patrol, lvlDef));
+  // Pick one random guard to be the demon's frog-pet owner
+  if (guards.length > 0) {
+    const pick = guards[Math.floor(Math.random() * guards.length)];
+    buildGuardFrog(pick.mesh);
+  }
+}
+
+function canSeePlayer(g) {
+  if (isHiding) return false;
+  const dx=playerPos.x-g.pos.x, dz=playerPos.z-g.pos.z;
+  const dist=Math.sqrt(dx*dx+dz*dz);
+  const effRange=g.visionRange*(isSneaking?0.52:isCrouching?0.68:1.0);
+  if (dist>effRange) return false;
+  const toPlayer=Math.atan2(dx,dz);
+  let diff=Math.abs(toPlayer-g.facing);
+  if (diff>Math.PI) diff=Math.PI*2-diff;
+  return diff < g.visionAngle*(isSneaking?0.62:1.0)/2;
+}
+
+function updateGuard(g, dt) {
+  g.walkFrame += dt*60;
+  const sees=canSeePlayer(g);
+  const lvlDef=LEVEL_DEFS[currentLevel-1];
+  if (sees) {
+    g.alertLevel=Math.min(1,g.alertLevel+0.055*dt*60);
+    if (g.alertLevel>0.3 && Date.now()-g.lastAlertSound>2200) {
+      playAlertSound(); g.lastAlertSound=Date.now();
+    }
+  } else {
+    const alertDecay=lvlDef.alertDecayMult||1.0;
+    g.alertLevel=Math.max(0,g.alertLevel-(g.alertLevel>0.8?0.008:0.013)*alertDecay*dt*60);
+  }
+
+  if (!isSneaking&&!isHiding&&noiseLevel>0.5) {
+    const dx=playerPos.x-g.pos.x, dz=playerPos.z-g.pos.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    const soundRange=5*soundSensitivity*noiseLevel*(lvlDef.soundSensBase||1.0);
+    if (dist<soundRange && g.alertLevel<0.4) {
+      g.alertLevel=Math.min(0.5,g.alertLevel+0.15);
+      g.searchTarget=new THREE.Vector3(playerPos.x,g.pos.y,playerPos.z);
+      g.searchTime=3;
+    }
+  }
+
+  const isChasing=g.alertLevel>=0.95;
+  let targetX=g.pos.x, targetZ=g.pos.z;
+  if (isChasing) { targetX=playerPos.x; targetZ=playerPos.z; }
+  else if (g.searchTarget&&g.searchTime>0) {
+    g.searchTime-=dt; targetX=g.searchTarget.x; targetZ=g.searchTarget.z;
+    if (Math.sqrt((targetX-g.pos.x)**2+(targetZ-g.pos.z)**2)<1) { g.searchTarget=null; g.searchTime=0; }
+  } else if (g.patrol&&g.patrol.length>0) {
+    const pt=g.patrol[g.patrolIdx]; targetX=pt.x; targetZ=pt.z;
+    if (Math.sqrt((targetX-g.pos.x)**2+(targetZ-g.pos.z)**2)<0.5)
+      g.patrolIdx=(g.patrolIdx+1)%g.patrol.length;
+  }
+
+  const dx2=targetX-g.pos.x, dz2=targetZ-g.pos.z;
+  const d=Math.sqrt(dx2*dx2+dz2*dz2)||1;
+  const spd=g.speed*(isChasing?1.6:1.0)*dt;
+  if (d>0.3) { g.pos.x+=(dx2/d)*spd; g.pos.z+=(dz2/d)*spd; g.facing=Math.atan2(dx2,dz2); }
+  if (isChasing&&d<1.4) { panicMeter=1; return; }
+
+  g.mesh.position.copy(g.pos);
+  g.mesh.rotation.y=g.facing;
+  if(g.legL) g.legL.rotation.x=Math.sin(g.walkFrame*0.05)*0.5;
+  if(g.legR) g.legR.rotation.x=-Math.sin(g.walkFrame*0.05)*0.5;
+  if(g.armL) g.armL.rotation.x=-Math.sin(g.walkFrame*0.05)*0.3;
+  if(g.armR) g.armR.rotation.x=Math.sin(g.walkFrame*0.05)*0.3;
+
+  const c=g.coneMesh;
+  const range=g.visionRange*(isSneaking?0.55:1.0);
+  c.material.color.setHex(g.alertLevel>0.7?0xff2222:g.alertLevel>0.3?0xff8800:0xffff00);
+  c.material.opacity=g.alertLevel>0.5?0.32:0.13;
+  c.scale.set(range*0.7,range,range*0.7);
+  c.position.set(0,0.3,-range/2); c.rotation.x=Math.PI/2;
+  if (g.alertMark) {
+    if (g.alertLevel>0.8) { g.alertMark.material.color.setHex(0xff2222); g.alertMark.material.opacity=0.9; }
+    else if (g.alertLevel>0.3) { g.alertMark.material.color.setHex(0xffaa00); g.alertMark.material.opacity=0.7; }
+    else g.alertMark.material.opacity=0;
+    g.alertMark.rotation.y=-g.mesh.rotation.y;
+  }
+}
+
+// ── Player ─────────────────────────────────────────────────
+const playerGroup = new THREE.Group();
+let playerPos = new THREE.Vector3(0, 1.2, 0);
+let playerFacing = 0;
+let playerWalkFrame = 0;
+
+function buildPlayer() {
+  while(playerGroup.children.length) playerGroup.remove(playerGroup.children[0]);
+
+  // ── Materials ────────────────────────────────────────────
+  const coatMat    = new THREE.MeshLambertMaterial({color:0x8b1a1a});       // deep red coat
+  const coatDarkMat= new THREE.MeshLambertMaterial({color:0x4a0e0e});       // darker coat trim
+  const pantsMat   = new THREE.MeshLambertMaterial({color:0x1a1a3a});       // dark navy breeches
+  const bootMat    = new THREE.MeshLambertMaterial({color:0x1a0e00});       // dark leather boots
+  const skinMat    = MAT.skin;
+  const blackMat   = MAT.black;
+  const goldMat    = MAT.gold;
+  const hookMat    = new THREE.MeshLambertMaterial({color:0xcccccc,emissive:0x888888,emissiveIntensity:0.4});
+  const eyepatchMat= new THREE.MeshLambertMaterial({color:0x111111});
+  const beardMat   = new THREE.MeshLambertMaterial({color:0x2a1a08});       // dark brown beard
+  const sashMat    = new THREE.MeshLambertMaterial({color:0xdd6600});       // orange sash
+  const buckMat    = new THREE.MeshLambertMaterial({color:0xd4a017,emissive:0xd4a017,emissiveIntensity:0.3});
+
+  // ── Boots (bottom — drawn first so coat overlaps) ────────
+  const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.45,0.44), bootMat);
+  bootL.position.set(-0.22,-1.08,0.02); playerGroup.add(bootL);
+  const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.45,0.44), bootMat);
+  bootR.position.set(0.22,-1.08,0.02); playerGroup.add(bootR);
+  // Boot cuffs (light fold at top)
+  const cuffMat = new THREE.MeshLambertMaterial({color:0x3a1e00});
+  const cuffL = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.46), cuffMat);
+  cuffL.position.set(-0.22,-0.84,0.02); playerGroup.add(cuffL);
+  const cuffR = cuffL.clone(); cuffR.position.set(0.22,-0.84,0.02); playerGroup.add(cuffR);
+
+  // ── Legs / Breeches ──────────────────────────────────────
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.55,0.38), pantsMat);
+  legL.position.set(-0.22,-0.56,0); legL.userData.walkTag='legL'; playerGroup.add(legL);
+  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.55,0.38), pantsMat);
+  legR.position.set(0.22,-0.56,0); legR.userData.walkTag='legR'; playerGroup.add(legR);
+
+  // ── Coat body ────────────────────────────────────────────
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.78,1.0,0.52), coatMat);
+  playerGroup.add(body);
+  // Coat lapels / front stripe (dark)
+  const lapel = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.7,0.54), coatDarkMat);
+  lapel.position.set(0,0.1,0); playerGroup.add(lapel);
+  // Gold buttons down the front
+  for(let i=0;i<3;i++) {
+    const btn = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.56), buckMat);
+    btn.position.set(0, 0.32-i*0.22, 0); playerGroup.add(btn);
+  }
+  // Coat tails (two flaps hanging below waist)
+  const tailL = new THREE.Mesh(new THREE.BoxGeometry(0.28,0.38,0.48), coatMat);
+  tailL.position.set(-0.22,-0.69,0); playerGroup.add(tailL);
+  const tailR = new THREE.Mesh(new THREE.BoxGeometry(0.28,0.38,0.48), coatMat);
+  tailR.position.set(0.22,-0.69,0); playerGroup.add(tailR);
+
+  // ── Sash / belt ──────────────────────────────────────────
+  const sash = new THREE.Mesh(new THREE.BoxGeometry(0.80,0.13,0.54), sashMat);
+  sash.position.set(0,-0.2,0); playerGroup.add(sash);
+  const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.16,0.14,0.56), buckMat);
+  buckle.position.set(0,-0.2,0); playerGroup.add(buckle);
+
+  // ── Arms ─────────────────────────────────────────────────
+  const armL = new THREE.Mesh(new THREE.BoxGeometry(0.24,0.72,0.30), coatMat);
+  armL.position.set(-0.54,0.08,0); armL.userData.walkTag='armL'; playerGroup.add(armL);
+  // Cuff on left arm
+  const armCuffL = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.12,0.32), coatDarkMat);
+  armCuffL.position.set(-0.54,-0.3,0); playerGroup.add(armCuffL);
+  // Left hand
+  const handL = new THREE.Mesh(new THREE.BoxGeometry(0.20,0.18,0.22), skinMat);
+  handL.position.set(-0.54,-0.46,0); playerGroup.add(handL);
+
+  // Right arm — hook hand
+  const armR = new THREE.Mesh(new THREE.BoxGeometry(0.24,0.72,0.30), coatMat);
+  armR.position.set(0.54,0.08,0); armR.userData.walkTag='armR'; playerGroup.add(armR);
+  const armCuffR = new THREE.Mesh(new THREE.BoxGeometry(0.26,0.12,0.32), coatDarkMat);
+  armCuffR.position.set(0.54,-0.3,0); playerGroup.add(armCuffR);
+  // Hook — metal cylinder + curved tip
+  const hookShaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.28,8), hookMat);
+  hookShaft.rotation.z = Math.PI/2; hookShaft.position.set(0.68,-0.46,0); playerGroup.add(hookShaft);
+  const hookCurve = new THREE.Mesh(new THREE.TorusGeometry(0.1,0.035,6,8,Math.PI*0.75), hookMat);
+  hookCurve.rotation.z = -Math.PI*0.1; hookCurve.position.set(0.83,-0.42,0); playerGroup.add(hookCurve);
+
+  // ── Head ─────────────────────────────────────────────────
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.64,0.64,0.58), skinMat);
+  head.position.set(0,0.82,0); playerGroup.add(head);
+
+  // Beard (lower jaw area)
+  const beard = new THREE.Mesh(new THREE.BoxGeometry(0.50,0.26,0.56), beardMat);
+  beard.position.set(0,0.60,0.02); playerGroup.add(beard);
+  // Moustache
+  const stache = new THREE.Mesh(new THREE.BoxGeometry(0.40,0.10,0.58), beardMat);
+  stache.position.set(0,0.74,0.02); playerGroup.add(stache);
+
+  // Eyes — left eye visible
+  const eyeMatGreen = new THREE.MeshLambertMaterial({color:0x22aa44,emissive:0x115522,emissiveIntensity:0.6});
+  const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.13,0.13,0.06), eyeMatGreen);
+  eyeL.position.set(-0.17,0.88,0.30); playerGroup.add(eyeL);
+
+  // Eyepatch over right eye
+  const patch = new THREE.Mesh(new THREE.BoxGeometry(0.19,0.16,0.06), eyepatchMat);
+  patch.position.set(0.17,0.88,0.30); playerGroup.add(patch);
+  // Eyepatch strap across head
+  const strapH = new THREE.Mesh(new THREE.BoxGeometry(0.66,0.06,0.06), eyepatchMat);
+  strapH.position.set(0,0.88,0.28); playerGroup.add(strapH);
+
+  // ── Pirate hat ───────────────────────────────────────────
+  // Wide tricorn brim
+  const brim = new THREE.Mesh(new THREE.BoxGeometry(1.05,0.10,0.85), blackMat);
+  brim.position.set(0,1.18,0); playerGroup.add(brim);
+  // Tricorn front fold up (angled front peak)
+  const frontPeak = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.22,0.12), blackMat);
+  frontPeak.rotation.x = -0.5; frontPeak.position.set(0,1.26,0.40); playerGroup.add(frontPeak);
+  // Side peaks
+  const peakL = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.20,0.72), blackMat);
+  peakL.rotation.z = 0.35; peakL.position.set(-0.50,1.25,0); playerGroup.add(peakL);
+  const peakR = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.20,0.72), blackMat);
+  peakR.rotation.z = -0.35; peakR.position.set(0.50,1.25,0); playerGroup.add(peakR);
+  // Crown
+  const crown = new THREE.Mesh(new THREE.BoxGeometry(0.60,0.46,0.58), blackMat);
+  crown.position.set(0,1.54,0); playerGroup.add(crown);
+  // Gold band + skull badge
+  const hatBand = new THREE.Mesh(new THREE.BoxGeometry(0.62,0.09,0.60), goldMat);
+  hatBand.position.set(0,1.30,0); playerGroup.add(hatBand);
+  // Skull on hat front
+  const skullW = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.16,0.62), new THREE.MeshLambertMaterial({color:0xeeeeee}));
+  skullW.position.set(0,1.44,0.01); playerGroup.add(skullW);
+
+  // ── Frog Pet (sits on left shoulder) ─────────────────────
+  const frogGrp = new THREE.Group();
+  const frogBodyMat  = new THREE.MeshLambertMaterial({color:0x3dba4e, emissive:0x1a5e20, emissiveIntensity:0.25});
+  const frogBellyMat = new THREE.MeshLambertMaterial({color:0x7ee68a});
+  const frogDarkMat  = new THREE.MeshLambertMaterial({color:0x2a8035});
+  const frogEyeMat   = new THREE.MeshLambertMaterial({color:0xffee00, emissive:0xaacc00, emissiveIntensity:0.6});
+  const frogPupilMat = new THREE.MeshLambertMaterial({color:0x050505});
+
+  // Body (squat rounded box)
+  const frogBody = new THREE.Mesh(new THREE.BoxGeometry(0.28,0.18,0.22), frogBodyMat);
+  frogGrp.add(frogBody);
+
+  // Belly patch
+  const belly = new THREE.Mesh(new THREE.BoxGeometry(0.18,0.12,0.22), frogBellyMat);
+  belly.position.set(0, -0.02, 0.02); frogGrp.add(belly);
+
+  // Head (slightly wider than body)
+  const frogHead = new THREE.Mesh(new THREE.BoxGeometry(0.30,0.16,0.20), frogBodyMat);
+  frogHead.position.set(0, 0.14, 0.01); frogGrp.add(frogHead);
+
+  // Wide mouth line
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.22,0.03,0.21), frogDarkMat);
+  mouth.position.set(0, 0.07, 0.02); frogGrp.add(mouth);
+
+  // Eye bulges (left & right)
+  const eyeBulgeL = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.10,0.10), frogBodyMat);
+  eyeBulgeL.position.set(-0.10, 0.21, 0.0); frogGrp.add(eyeBulgeL);
+  const eyeBulgeR = eyeBulgeL.clone(); eyeBulgeR.position.set(0.10, 0.21, 0.0); frogGrp.add(eyeBulgeR);
+
+  // Irises
+  const irisL = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.11), frogEyeMat);
+  irisL.position.set(-0.10, 0.21, 0.04); frogGrp.add(irisL);
+  const irisR = irisL.clone(); irisR.position.set(0.10, 0.21, 0.04); frogGrp.add(irisR);
+
+  // Pupils
+  const pupilL = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,0.12), frogPupilMat);
+  pupilL.position.set(-0.10, 0.21, 0.06); frogGrp.add(pupilL);
+  const pupilR = pupilL.clone(); pupilR.position.set(0.10, 0.21, 0.06); frogGrp.add(pupilR);
+
+  // Front legs / feet (little stubs)
+  const legFLMat = frogDarkMat;
+  const legFL = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.13), legFLMat);
+  legFL.position.set(-0.17, -0.10, 0.06); frogGrp.add(legFL);
+  const legFR = legFL.clone(); legFR.position.set(0.17, -0.10, 0.06); frogGrp.add(legFR);
+
+  // Back haunches (crouching frog pose)
+  const haunchL = new THREE.Mesh(new THREE.BoxGeometry(0.10,0.11,0.10), frogBodyMat);
+  haunchL.position.set(-0.16, -0.06, -0.08); frogGrp.add(haunchL);
+  const haunchR = haunchL.clone(); haunchR.position.set(0.16, -0.06, -0.08); frogGrp.add(haunchR);
+
+  // Place on left shoulder
+  frogGrp.position.set(-0.54, 0.52, 0.0);
+  frogGrp.scale.set(0.85, 0.85, 0.85);
+  playerGroup.add(frogGrp);
+  playerGroup.userData.frogGrp = frogGrp;
+
+  scene.add(playerGroup);
+}
+buildPlayer();
+
+// ── Player Update ─────────────────────────────────────────
+let walkSound = 0;
+function updatePlayer(dt) {
+  const sneak = keys['ShiftLeft']||keys['ShiftRight'];
+  isSneaking = sneak;
+  const spd = sneak ? SNEAK_SPEED : (isCrouching ? PLAYER_SPEED*0.65 : PLAYER_SPEED);
+
+  let dx=0, dz=0;
+  if (keys['KeyA']||keys['ArrowLeft']) dx -= 1;
+  if (keys['KeyD']||keys['ArrowRight']) dx += 1;
+  if (keys['KeyW']||keys['ArrowUp']) dz -= 1;
+  if (keys['KeyS']||keys['ArrowDown']) dz += 1;
+
+  const moving = dx!==0||dz!==0;
+  noiseLevel = 0;
+
+  if (moving) {
+    const len = Math.sqrt(dx*dx+dz*dz);
+    dx/=len; dz/=len;
+    const nx = playerPos.x + dx*spd*dt;
+    const nz = playerPos.z + dz*spd*dt;
+    const newPos = resolveCollision(new THREE.Vector3(nx, playerPos.y, nz));
+    playerPos.x = newPos.x;
+    playerPos.z = newPos.z;
+    playerFacing = Math.atan2(dx, dz);
+    playerWalkFrame += dt*60;
+    noiseLevel = sneak ? 0.2 : (isCrouching ? 0.5 : 1.0);
+    footstepTimer -= dt;
+    if (footstepTimer <= 0) {
+      footstepTimer = sneak ? 0.58 : 0.27;
+      if (!isHiding) playFootstep(sneak);
+    }
+  }
+
+  playerGroup.position.copy(playerPos);
+  playerGroup.rotation.y = playerFacing;
+
+  const targetY = isHiding ? 0.45 : (isCrouching ? 0.78 : 1.2);
+  playerPos.y += (targetY - playerPos.y) * 0.15;
+  playerGroup.position.y = playerPos.y;
+
+  if (moving && !isHiding) {
+    const wf = playerWalkFrame*0.06;
+    const lL=playerGroup.children.find(c=>c.userData.walkTag==='legL');
+    const lR=playerGroup.children.find(c=>c.userData.walkTag==='legR');
+    const aL=playerGroup.children.find(c=>c.userData.walkTag==='armL');
+    const aR=playerGroup.children.find(c=>c.userData.walkTag==='armR');
+    if(lL) lL.rotation.x=Math.sin(wf)*0.6;
+    if(lR) lR.rotation.x=-Math.sin(wf)*0.6;
+    if(aL) aL.rotation.x=-Math.sin(wf)*0.3;
+    if(aR) aR.rotation.x=Math.sin(wf)*0.3;
+  }
+
+  // ── Camera ────────────────────────────────────────────────
+  if (cameraMode === 0) {
+    // Overhead follow
+    const camOffset = new THREE.Vector3(0, 16, 18);
+    const targetCam = playerPos.clone().add(camOffset);
+    camera.position.lerp(targetCam.add(cameraShake), 0.1);
+    camera.lookAt(playerPos.x+cameraShake.x*0.3, playerPos.y+1, playerPos.z+cameraShake.z*0.3);
+  } else if (cameraMode === 1) {
+    // Shoulder cam
+    const behind = new THREE.Vector3(-Math.sin(playerFacing)*5, 5, -Math.cos(playerFacing)*5);
+    const targetCam = playerPos.clone().add(behind).add(cameraShake);
+    camera.position.lerp(targetCam, 0.12);
+    camera.lookAt(playerPos.x+Math.sin(playerFacing)*3, playerPos.y+1, playerPos.z+Math.cos(playerFacing)*3);
+  } else {
+    // First-person pirate eye
+    const eyeOffset = new THREE.Vector3(
+      Math.sin(playerFacing)*0.3,
+      2.2,
+      Math.cos(playerFacing)*0.3
+    );
+    camera.position.copy(playerPos.clone().add(eyeOffset).add(cameraShake));
+    camera.lookAt(
+      playerPos.x + Math.sin(playerFacing)*8,
+      playerPos.y + 1.5 + cameraShake.y,
+      playerPos.z + Math.cos(playerFacing)*8
+    );
+  }
+
+  if (shakeIntensity>0.01) {
+    cameraShake.set((Math.random()-.5)*shakeIntensity,(Math.random()-.5)*shakeIntensity*.5,(Math.random()-.5)*shakeIntensity);
+    shakeIntensity*=0.84;
+  } else { cameraShake.set(0,0,0); shakeIntensity=0; }
+
+  // Panic
+  const anySeeing = guards.some(g=>g.alertLevel>0.1);
+  const lvlDefP = LEVEL_DEFS[currentLevel-1];
+  if (anySeeing&&!isHiding) {
+    const maxAlert=Math.max(...guards.map(g=>g.alertLevel));
+    panicMeter=Math.min(1,panicMeter+maxAlert*0.022*lvlDefP.panicRiseMult*dt*60);
+  } else {
+    panicMeter=Math.max(0,panicMeter-0.007*lvlDefP.panicDecayMult*dt*60);
+  }
+
+  // ── Heartbeat — fires based on demon distance + guard proximity + panic ──
+  {
+    // Demon distance: most terrifying — full range 0..18 units
+    let demonDist = 999;
+    if (demonMesh) demonDist = playerPos.distanceTo(demonPos);
+    // Nearest guard distance
+    let guardDist = 999;
+    guards.forEach(g => { const d = playerPos.distanceTo(g.pos); if (d < guardDist) guardDist = d; });
+
+    // Demon proximity intensity: kicks in from 14 units, maxes at 2 units
+    const demonProx  = Math.max(0, Math.min(1, 1 - (demonDist - 2) / 12));
+    // Guard proximity intensity: kicks in from 10 units, maxes at 2 units
+    const guardProx  = Math.max(0, Math.min(1, 1 - (guardDist - 2) / 8));
+    // Panic contribution (always adds a floor)
+    const panicContrib = panicMeter * 0.45;
+
+    // Demon is 3× more terrifying than a guard
+    const heartIntensity = Math.min(1, demonProx * 0.85 + guardProx * 0.28 + panicContrib);
+    const demonClose = demonDist < 7;
+
+    // Heartbeat fires whenever intensity > 0 (demon nearby fires it even at low panic)
+    if (heartIntensity > 0.05 || panicMeter > 0.3) {
+      // Beat interval: 1.4s calm → 0.25s max terror
+      const beatInterval = Math.max(0.25, 1.4 - heartIntensity * 1.15);
+      heartbeatTimer -= dt;
+      if (heartbeatTimer <= 0) {
+        heartbeatTimer = beatInterval;
+        playHeartbeat(heartIntensity, demonClose);
+      }
+    } else {
+      heartbeatTimer = 0;
+    }
+  }
+
+  // Auto-proximity key grab
+  keyObjects.forEach(k => {
+    if (!k.collected && playerPos.distanceTo(k.position)<2.2) tryInteract();
+  });
+
+  // Gem auto-grab
+  if (!gemCollected && gemMesh) {
+    const gp = new THREE.Vector3(gemMesh.position.x, playerPos.y, gemMesh.position.z);
+    if (playerPos.distanceTo(gp)<2.2) tryInteract();
+  }
+
+  // Ship box proximity — decorative in Level 1 (all loot is on the port now)
+  if (currentLevel === 1 && !shipBoxModalOpen) {
+    for (let i=0;i<shipBoxes.length;i++) {
+      const sb = shipBoxes[i];
+      if (playerPos.distanceTo(sb.position)<2.5) {
+        showClue(`📦 These boxes are empty — all loot is on the port!`, 2000);
+        break;
+      }
+    }
+  }
+
+  // Treasure interaction
+  if (gemInserted && !treasureUnlocked && treasureMesh) {
+    const tp = new THREE.Vector3(treasureMesh.position.x, playerPos.y, treasureMesh.position.z);
+    if (playerPos.distanceTo(tp)<2.5) tryInteract();
+  }
+
+  // Exit
+  if (treasureUnlocked && hasTreasure && exitActive && exitMesh) {
+    const ep = new THREE.Vector3(EXIT_POS.x, playerPos.y, EXIT_POS.z);
+    if (playerPos.distanceTo(ep)<2.8) triggerEscape();
+  }
+
+  updateHidingHighlight();
+
+  const st=document.getElementById('status-val');
+  if (st) {
+    if (isHiding) { st.textContent='🫥 HIDDEN'; st.style.color='#00ffcc'; }
+    else if (isSneaking) { st.textContent='🦶 SNEAKING'; st.style.color='#ffcc00'; }
+    else if (hasTreasure) { st.textContent='💀 CARRYING'; st.style.color='#ff6600'; }
+    else if (gemInserted) { st.textContent='🔓 OPEN CHEST!'; st.style.color='#ffcc00'; }
+    else if (gemCollected && keysCollected>=2) { st.textContent='💎 INSERT GEM!'; st.style.color='#cc44ff'; }
+    else { st.textContent=`🔑 ${keysCollected}/2 KEYS · ${gemCollected?'💎':'○'} GEM`; st.style.color='#aaaaaa'; }
+  }
+}
+
+function updateHidingHighlight() {
+  hidingSpots.forEach(spot => {
+    if (playerPos.distanceTo(spot.position)<spot.radius+0.8)
+      showClue(`[SPACE] Hide behind ${spot.label}`, 1500);
+  });
+}
+
+function toggleCrouch() {
+  const nearby = hidingSpots.find(s=>playerPos.distanceTo(s.position)<s.radius+0.7);
+  if (nearby&&!isHiding) {
+    isHiding=true; isCrouching=true;
+    showClue(`🫥 Hidden in ${nearby.label}...`, 3000);
+    panicMeter=Math.max(0,panicMeter-0.18);
+    playHideSound(); return;
+  }
+  isHiding=false; isCrouching=!isCrouching;
+  if (!isCrouching) showClue('👣 Moving again...', 1200);
+}
+
+// ── Interaction ────────────────────────────────────────────
+function tryInteract() {
+  if (gameState !== 'play') return;
+
+
+  // Ship box search (Level 1 boxes are now decorative — all loot on port)
+  if (currentLevel === 1) {
+    for (let i=0;i<shipBoxes.length;i++) {
+      const sb = shipBoxes[i];
+      if (playerPos.distanceTo(sb.position)<2.8) {
+        showClue("📦 Empty box — find Keys and Gem on the port!", 2000);
+        return;
+      }
+    }
+  }
+
+  // Gem grab
+  if (!gemCollected && gemMesh) {
+    const gp = new THREE.Vector3(gemMesh.position.x, playerPos.y, gemMesh.position.z);
+    if (playerPos.distanceTo(gp)<2.5) {
+      gemCollected = true;
+      scene.remove(gemMesh); if(gemLight) scene.remove(gemLight);
+      document.getElementById('gs0').classList.add('collected');
+      document.getElementById('gs0').classList.remove('empty');
+      playGemSound(); shakeIntensity=4;
+      showClue('💎 GEM collected! Find both keys, then insert the gem!', 4000);
+      checkGemKeyReady();
+      return;
+    }
+  }
+
+  // Key collect
+  for (const k of keyObjects) {
+    if (!k.collected && playerPos.distanceTo(k.position)<2.5) {
+      k.collected=true; scene.remove(k.mesh); if(k.light) scene.remove(k.light);
+      keysCollected++;
+      playKeySound(); shakeIntensity=4;
+      document.getElementById('ks'+(keysCollected-1)).classList.add('collected');
+      document.getElementById('ks'+(keysCollected-1)).classList.remove('empty');
+      if (keysCollected < 2) showClue(`🗝️ Key ${keysCollected}/2 collected!`, 3000);
+      else showClue(`🗝️ BOTH KEYS! Now find the gem!`, 3000);
+      checkGemKeyReady();
+      return;
+    }
+  }
+
+  // Open treasure (only after gem inserted)
+  if (gemInserted && !treasureUnlocked && treasureMesh) {
+    const tp=new THREE.Vector3(treasureMesh.position.x,playerPos.y,treasureMesh.position.z);
+    if (playerPos.distanceTo(tp)<2.5) {
+      treasureUnlocked=true; hasTreasure=true;
+      playTreasureSound(); shakeIntensity=8;
+      guards.forEach(g=>{g.alertLevel=Math.min(g.alertLevel+0.5,0.95);g.speed*=1.25;});
+      showGuardAlert();
+      document.getElementById('carrying-hud').style.display='flex';
+      document.getElementById('carrying-hud-text').textContent='💀 CARRYING TREASURE — RUN TO EXTRACTION!';
+      if (treasureLight) treasureLight.intensity=6;
+      exitActive=true;
+      if (exitLight) exitLight.intensity=3;
+      showClue('💰 TREASURE STOLEN! Guards on high alert!', 3500);
+      // Big extraction zone notification
+      setTimeout(() => {
+        showMissionNotif('🚀', 'FINAL OBJECTIVE', 'GO TO EXTRACTION ZONE', '→ Reach the glowing EXIT circle!', '#00ff64', 6000);
+      }, 500);
+      const al=new THREE.PointLight(0xff9900,2.5,6);
+      playerGroup.add(al); playerGroup.userData.artifactLight=al;
+      return;
+    }
+  }
+
+  // Gem not inserted but ready
+  if (gemCollected && keysCollected>=2 && !gemInserted) {
+    if (treasureMesh) {
+      const tp=new THREE.Vector3(treasureMesh.position.x,playerPos.y,treasureMesh.position.z);
+      if (playerPos.distanceTo(tp)<4) { showGemModal(); return; }
+    }
+    showClue('💎 Go to the treasure chest to insert the gem!', 3000);
+    return;
+  }
+
+  showClue('Nothing nearby to interact with.', 1500);
+}
+
+function checkGemKeyReady() {
+  if (gemCollected && keysCollected>=2 && !gemInserted) {
+    setTimeout(()=>showGemModal(), 800);
+  }
+}
+
+// ── Box Modal ──────────────────────────────────────────────
+function openBoxModal(hoveredIdx) {
+  if (gameState !== 'play') return;
+  gameState = 'paused';
+  shipBoxModalOpen = true;
+
+  const modal = document.getElementById('box-modal');
+  const grid = document.getElementById('box-grid');
+  grid.innerHTML = '';
+  shipBoxes.forEach((sb, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'box-item' + (sb.opened?' opened':'');
+    btn.innerHTML = sb.opened ? '📦' : '📦';
+    btn.title = `Box ${i+1}`;
+    if (!sb.opened) btn.onclick = () => searchBox(i);
+    grid.appendChild(btn);
+  });
+  document.getElementById('box-modal-msg').textContent = 'Open a box to find Key 2 or the Gem!';
+  modal.style.display = 'block';
+}
+
+function searchBox(idx) {
+  const sb = shipBoxes[idx];
+  if (sb.opened) return;
+  sb.opened = true;
+  const grid = document.getElementById('box-grid');
+  const items = grid.querySelectorAll('.box-item');
+  items[idx].classList.add('opened');
+
+  let found = '';
+  if (sb.hasKey && !boxKey2Found) {
+    boxKey2Found = true;
+    found = '🗝️ KEY 2 FOUND!';
+    // Grant key 2
+    if (keysCollected < 2) {
+      keysCollected = Math.max(keysCollected, 1);
+      // Add as second key object collected
+      keyObjects.forEach(k => { if (!k.collected) { k.collected=true; scene.remove(k.mesh); if(k.light) scene.remove(k.light); }});
+      keysCollected = 2;
+      document.getElementById('ks0').classList.add('collected'); document.getElementById('ks0').classList.remove('empty');
+      document.getElementById('ks1').classList.add('collected'); document.getElementById('ks1').classList.remove('empty');
+      playKeySound();
+    }
+  } else if (sb.hasGem && !boxGemFound) {
+    boxGemFound = true;
+    found = '💎 GEM FOUND!';
+    gemCollected = true;
+    if (gemMesh) { scene.remove(gemMesh); if(gemLight) scene.remove(gemLight); }
+    document.getElementById('gs0').classList.add('collected'); document.getElementById('gs0').classList.remove('empty');
+    playGemSound();
+  } else {
+    found = '💨 Empty...';
+  }
+
+  document.getElementById('box-modal-msg').textContent = found;
+  if (boxKey2Found && boxGemFound) {
+    setTimeout(()=>{ closeBoxModal(); checkGemKeyReady(); }, 1200);
+  }
+}
+
+function closeBoxModal() {
+  document.getElementById('box-modal').style.display = 'none';
+  shipBoxModalOpen = false;
+  if (gameState === 'paused') gameState = 'play';
+}
+
+// ── Gem Modal ──────────────────────────────────────────────
+function showGemModal() {
+  gameState = 'paused';
+  // Reset modal to fresh state
+  document.getElementById('gem-modal-msg').innerHTML =
+    'You have both keys and the gem!<br>Which key do you forge the gem into?<br><em>Only one unlocks the treasure...</em>';
+  ['gem-btn-0','gem-btn-1'].forEach((id,i) => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.textContent = `🗝️ Key ${i+1}`; }
+  });
+  document.getElementById('gem-modal').style.display = 'block';
+}
+
+function insertGem(keyIdx) {
+  if (keyIdx === correctKeyForGem) {
+    document.getElementById('gem-modal').style.display = 'none';
+    gameState = 'play';
+    gemInserted = true;
+    playGemInsertSound();
+    shakeIntensity = 6;
+    if (treasureLight) treasureLight.intensity = 4;
+    showClue('✨ PERFECT MATCH! The gem glows — the chest is unlocked!', 4000);
+    // Mission notification: go collect treasure at drop zone
+    setTimeout(() => {
+      showMissionNotif('💰', 'NEW OBJECTIVE', 'COLLECT THE TREASURE', '→ Head to the DROP ZONE', '#f5c842', 5000);
+    }, 600);
+  } else {
+    // Wrong key — penalty + offer the other key immediately
+    panicMeter = Math.min(1, panicMeter + 0.3);
+    guards.forEach(g => g.alertLevel = Math.min(g.alertLevel+0.3, 0.8));
+    showGuardAlert();
+    shakeIntensity = 10;
+    playWrongKeySound();
+
+    // Disable the wrong key button, update message, leave modal open
+    const wrongBtn = document.getElementById('gem-btn-' + keyIdx);
+    if (wrongBtn) { wrongBtn.disabled = true; wrongBtn.style.opacity = '0.3'; wrongBtn.textContent = '✗ Wrong!'; }
+    document.getElementById('gem-modal-msg').innerHTML =
+      '⚠️ <strong style="color:#ff4444">Wrong key!</strong> Guards alerted!<br>Try the other key →';
+    // Keep modal open so player can pick the other key instantly
+  }
+}
+
+// ── Guard Alert Display ────────────────────────────────────
+let alertOverlayTimer = 0;
+function showGuardAlert() {
+  document.getElementById('alert-overlay').style.opacity='1';
+  document.getElementById('alert-border').classList.add('on');
+  alertOverlayTimer=120; shakeIntensity=Math.max(shakeIntensity,9);
+}
+
+// ── Clue / HUD ────────────────────────────────────────────
+function showClue(text, dur=3200) {
+  const el=document.getElementById('clue-bar');
+  el.textContent=text; el.style.opacity='1';
+  clearTimeout(clueTimeout);
+  clueTimeout=setTimeout(()=>el.style.opacity='0',dur);
+}
+function showMsg(title,body,btnText='Continue',cb=null) {
+  document.getElementById('msg-title').textContent=title;
+  document.getElementById('msg-body').textContent=body;
+  const btn=document.getElementById('msg-btn');
+  btn.textContent=btnText;
+  btn.onclick=()=>{ closeMsg(); if(cb) cb(); };
+  document.getElementById('msg').style.display='block';
+  gameState='paused';
+}
+function closeMsg() {
+  document.getElementById('msg').style.display='none';
+  if (gameState==='paused') gameState='play';
+}
+function showBanner(text, sub='') {
+  const b=document.getElementById('level-banner');
+  document.getElementById('level-banner-text').textContent=text;
+  document.getElementById('level-sub').textContent=sub.toUpperCase();
+  b.style.opacity='1';
+  setTimeout(()=>b.style.opacity='0',2200);
+}
+
+let missionNotifTimer = null;
+function showMissionNotif(icon, title, msg, sub, color='#f5c842', dur=4000) {
+  const el = document.getElementById('mission-notif');
+  const inner = document.getElementById('mission-notif-inner');
+  document.getElementById('mission-notif-icon').textContent = icon;
+  document.getElementById('mission-notif-title').textContent = title;
+  document.getElementById('mission-notif-msg').textContent = msg;
+  document.getElementById('mission-notif-msg').style.color = color;
+  document.getElementById('mission-notif-sub').textContent = sub;
+  inner.style.borderColor = color;
+  inner.style.boxShadow = `0 0 60px ${color}55, 0 20px 60px rgba(0,0,0,.9)`;
+  // Show
+  el.classList.remove('hide');
+  el.classList.add('show');
+  clearTimeout(missionNotifTimer);
+  missionNotifTimer = setTimeout(() => {
+    el.classList.remove('show');
+    el.classList.add('hide');
+  }, dur);
+}
+
+// ── Level Builders ────────────────────────────────────────
+const TREASURE_POS = [
+  new THREE.Vector3(0,0,-12),   // L1
+  new THREE.Vector3(-8,0,0),    // L2
+  new THREE.Vector3(10,0,0),    // L3
+  new THREE.Vector3(0,0,8),     // L4
+  new THREE.Vector3(0,0,-8),    // L5
+];
+
+// Key positions (for non-ship levels, or Key1 in L1)
+const KEY1_POS = [
+  [-10,-10],  // L1 Key1 on port
+  [-12, 8],   // L2
+  [ 8,-8],    // L3
+  [-10,-6],   // L4
+  [ 9,-9],    // L5
+];
+const KEY2_POS = [  // only used for levels 2+
+  [null,null],
+  [10, 6],    // L2
+  [-8, 8],    // L3
+  [10, 8],    // L4
+  [-9, 9],    // L5
+];
+const GEM_POS = [
+  [null,null],  // L1 gem is in ship box
+  [-3,-10],     // L2
+  [ 2,-3],      // L3
+  [ 0,-6],      // L4
+  [ 4, 4],      // L5
+];
+
+function buildLevel(lvlIdx) {
+  clearWorld();
+  const lvlDef = LEVEL_DEFS[lvlIdx];
+  setupLighting(lvlDef);
+  buildStars();
+  correctKeyForGem = Math.floor(Math.random()*2); // 0 or 1
+
+  const tp = TREASURE_POS[lvlIdx];
+  spawnTreasure(tp.x, tp.z);
+  spawnExit(EXIT_POS.x, EXIT_POS.z);
+
+  // Spawn Key 1 always on land
+  spawnKey(KEY1_POS[lvlIdx][0], KEY1_POS[lvlIdx][1], 0);
+
+  if (lvlIdx === 0) {
+    buildLevel_Port();
+    // Key2 and Gem also on the port (not in ship boxes)
+    spawnKey(5, 12, 1);        // Key 2 — port, open area
+    spawnGem(-8, 12);          // Gem — port, far side
+  } else {
+    spawnKey(KEY2_POS[lvlIdx][0], KEY2_POS[lvlIdx][1], 1);
+    spawnGem(GEM_POS[lvlIdx][0], GEM_POS[lvlIdx][1]);
+    if (lvlIdx===1) buildLevel_Seashore();
+    else if (lvlIdx===2) buildLevel_Hall();
+    else if (lvlIdx===3) buildLevel_Forest();
+    else if (lvlIdx===4) buildLevel_Pyramid();
+  }
+
+  // Demon — 1 per level, different location
+  const demonSpots = [
+    [12, -5], [-5, 12], [10, 10], [-12, -12], [0, -14]
+  ];
+  spawnDemon(demonSpots[lvlIdx][0], demonSpots[lvlIdx][1]);
+}
+
+function buildLevel_Port() {
+  wo(box(ARENA_W,0.5,ARENA_D,MAT.floor,0,-0.25,0,0,0,0,false,true));
+  buildBorderWalls(0x4a3020);
+
+  // Dock planks
+  for(let i=-4;i<=4;i++) wo(box(1,0.1,ARENA_D*0.6,MAT.wood,i*2,-0.18,0));
+
+  // Ship on the right side of port
+  buildShip(10, -6);
+
+  // Port obstacles
+  addBarrels(-10,-10); addBarrels(6,-12); addBarrels(-5,8);
+  addCrates(-4,4); addCrates(0,-6); addCrates(-8,-4);
+  addPillar(-7,-3); addPillar(-12,3);
+  addWall(-3,0,true,6); addWall(-9,5,true,4);
+  addWall(-5,8,false,5); addWall(-12,-6,false,4);
+
+  // Lanterns
+  [[-12,3,-12],[-12,3,12],[12,3,-12],[12,3,12],[0,3,-16],[0,3,16],[-6,3,0]].forEach(([x,y,z])=>addLantern(x,y,z));
+
+  // Water moat near exit
+  wo(box(5,0.1,5,MAT.water,EXIT_POS.x,0.01,EXIT_POS.z));
+}
+
+function buildLevel_Seashore() {
+  wo(box(ARENA_W,0.5,ARENA_D,MAT.sand,0,-0.25,0,0,0,0,false,true));
+  buildBorderWalls(0x3a2820);
+  wo(box(12,0.15,6,MAT.water,-8,0,14));
+  wo(box(10,0.15,4,MAT.water,10,0,-14));
+  addRock(-10,10,1.4); addRock(-7,12,1.0); addRock(8,-10,1.6);
+  addRock(11,-12,1.0); addRock(-4,-13,1.2); addRock(6,13,1.3);
+  addCrates(5,-5); addCrates(-3,4); addCrates(7,3);
+  addBarrels(-6,-4); addBarrels(4,9);
+  addPillar(0,-6); addPillar(-8,0);
+  addWall(2,6,true,5); addWall(-5,-2,false,6);
+  [[-12,2,-12],[-12,2,12],[12,2,-12],[12,2,12],[0,2,-14],[0,2,14]].forEach(([x,y,z])=>addLantern(x,y,z,0x4499ff));
+}
+
+function buildLevel_Hall() {
+  wo(box(ARENA_W,0.5,ARENA_D,MAT.stone,0,-0.25,0,0,0,0,false,true));
+  buildBorderWalls(0x443322);
+  [[-10,-10],[10,-10],[10,10],[-10,10],[-10,0],[10,0],[0,-10],[0,10]].forEach(([x,z])=>addPillar(x,z,MAT.stone));
+  addWall(-5,-5,true,8); addWall(5,5,true,8);
+  addWall(-5,5,false,8); addWall(5,-5,false,8);
+  addWall(0,0,true,5); addWall(0,0,false,5);
+  wo(box(8,0.6,8,MAT.pyramidAlt,0,0.3,0));
+  addBarrels(-7,-3); addBarrels(7,3); addCrates(3,-8); addCrates(-3,8);
+  [[-6,3,-6],[6,3,6],[6,3,-6],[-6,3,6],[0,3,-14],[0,3,14],[-14,3,0],[14,3,0]].forEach(([x,y,z])=>addLantern(x,y,z,0xff6622));
+}
+
+function buildLevel_Forest() {
+  wo(box(ARENA_W,0.5,ARENA_D,MAT.moss,0,-0.25,0,0,0,0,false,true));
+  buildBorderWalls(0x243018);
+  const treeDefs=[[-10,-10],[-10,-5],[-10,0],[-10,5],[-10,10],[-5,-10],[5,-10],[10,-10],[10,-5],[10,0],[10,5],[10,10],[5,10],[-5,10],[-5,-5],[-5,5],[5,-5],[5,5],[0,-10],[0,10],[-8,2],[8,-2],[3,0],[-3,0],[0,3],[0,-3],[-7,-8],[7,8],[-8,8],[8,-8]];
+  treeDefs.forEach(([x,z])=>addTree(x,z));
+  addRock(-3,-7,0.8); addRock(3,7,0.8);
+  addWall(-6,-3,true,4,MAT.wood); addWall(6,3,true,4,MAT.wood);
+  [[-8,3,-8],[8,3,8],[-8,3,8],[8,3,-8],[0,3,-14],[0,3,14]].forEach(([x,y,z])=>addLantern(x,y,z,0x22ff44));
+}
+
+function buildLevel_Pyramid() {
+  wo(box(ARENA_W,0.5,ARENA_D,MAT.sand,0,-0.25,0,0,0,0,false,true));
+  buildBorderWalls(0x7a5a30);
+  [[-12,0,true,8],[-12,6,true,8],[12,0,true,8],[12,6,true,8],[0,-12,false,8],[6,-12,false,8],[0,12,false,8],[6,12,false,8]].forEach(([x,z,h,l])=>addWall(x,z,h,l,MAT.pyramid));
+  [[-6,0,true,5],[-6,4,true,5],[6,0,true,5],[6,4,true,5],[0,-6,false,5],[4,-6,false,5],[0,6,false,5],[4,6,false,5]].forEach(([x,z,h,l])=>addWall(x,z,h,l,MAT.pyramidAlt));
+  [[-8,-8],[8,-8],[8,8],[-8,8],[-4,0],[4,0],[0,-4],[0,4]].forEach(([x,z])=>addPillar(x,z,MAT.pyramid));
+  wo(box(3,1,3,MAT.pyramidAlt,0,0.5,0)); wo(box(1.5,1.5,1.5,MAT.stone,0,1.25,0));
+  addBarrels(-3,-10); addBarrels(3,10);
+  [[-10,3,-10],[10,3,10],[-10,3,10],[10,3,-10],[0,3,-14],[0,3,14],[-14,3,0],[14,3,0],[-5,3,0],[5,3,0]].forEach(([x,y,z])=>addLantern(x,y,z,0xff4400));
+}
+
+// ── Game Start / Level Start ──────────────────────────────
+function startLevel(lvlNum) {
+  currentLevel = lvlNum;
+  keysCollected = 0;
+  gemCollected = false;
+  gemInserted = false;
+  hasTreasure = false;
+  treasureUnlocked = false;
+  exitActive = false;
+  panicMeter = 0;
+  isHiding = false; isCrouching = false; isSneaking = false; noiseLevel = 0;
+  demonTimer = 3;
+  const lvlDef = LEVEL_DEFS[lvlNum-1];
+  soundSensitivity = lvlDef.soundSensBase;
+
+  // Reset HUD slots
+  for(let i=0;i<2;i++) {
+    const ks=document.getElementById('ks'+i);
+    ks.classList.remove('collected'); ks.classList.add('empty');
+  }
+  const gs=document.getElementById('gs0');
+  gs.classList.remove('collected'); gs.classList.add('empty');
+
+  document.getElementById('carrying-hud').style.display='none';
+  if (playerGroup.userData.artifactLight) {
+    playerGroup.remove(playerGroup.userData.artifactLight);
+    delete playerGroup.userData.artifactLight;
+  }
+
+  buildLevel(lvlNum-1);
+  spawnGuards(lvlNum-1);
+  playerPos.set(0,1.2,0);
+  gameState='play';
+  updateHUD();
+
+  // Start ambient soundscape for this level's theme
+  const themeMap = ['port','shore','hall','forest','pyramid'];
+  setTimeout(() => startAmbient(themeMap[lvlNum-1] || 'port'), 300);
+  setTimeout(() => playLevelStartSound(), 150);
+
+  document.getElementById('zone-label').textContent=lvlDef.name.toUpperCase();
+  document.getElementById('diff-badge').textContent=`⚔ LEVEL ${lvlNum} · GUARDS ×${lvlDef.guardCount}`;
+  setTimeout(()=>showBanner(`LEVEL ${lvlNum}`,lvlDef.theme),200);
+  setTimeout(()=>showClue(lvlDef.clue,5500),1200);
+}
+
+// ── Escape / Level Clear ──────────────────────────────────
+function triggerEscape() {
+  if (gameState!=='play') return;
+  gameState='paused';
+  score += currentLevel*100;
+  if (playerGroup.userData.artifactLight) {
+    playerGroup.remove(playerGroup.userData.artifactLight);
+    delete playerGroup.userData.artifactLight;
+  }
+  hasTreasure=false;
+  document.getElementById('carrying-hud').style.display='none';
+  playEscapeSound(); playLevelUp();
+  shakeIntensity=6; panicMeter*=0.4;
+
+  const nextLevel=currentLevel+1;
+  if (nextLevel>5) {
+    showMsg('🏆 LEGENDARY PIRATE!',
+      `YOU CONQUERED ALL 5 CURSED WORLDS!\n\n` +
+      `☠ Final Score: ${score}\n\n` +
+      `The curse is broken. The treasure is yours.\n` +
+      `Skullport trembles at your name...`,
+      '⚓ Play Again!',
+      ()=>{ currentLevel=1; score=0; startLevel(1); }
+    );
+  } else {
+    showMsg(`✅ LEVEL ${currentLevel} CLEARED!`,
+      `You escaped ${LEVEL_DEFS[currentLevel-1].name}!\n\n` +
+      `🗝 Keys: 2/2  💎 Gem: Used  💰 Treasure: Stolen\n` +
+      `⭐ Score: ${score}\n\n` +
+      `Next: Level ${nextLevel} — ${LEVEL_DEFS[nextLevel-1].theme}`,
+      `→ Enter Level ${nextLevel}`,
+      ()=>{ currentLevel=nextLevel; startLevel(currentLevel); }
+    );
+  }
+}
+
+// ── Game Over ─────────────────────────────────────────────
+function triggerGameOver() {
+  if (gameState==='gameover') return;
+  gameState='gameover';
+  shakeIntensity=18; showGuardAlert();
+  playGameOverSound();
+  showMsg('💀 CAUGHT!',
+    `The ghost pirates dragged you to the brig!\n\nLevel: ${currentLevel}\n🏆 Score: ${score}\n🗝 Keys: ${keysCollected}/2\n\nThe curse lives on...`,
+    '🔄 Try Again!',
+    ()=>{ score=Math.floor(score*0.5); startLevel(currentLevel); }
+  );
+}
+
+// ── World Animations ──────────────────────────────────────
+function animateWorld(t) {
+  lanternLights.forEach((l,i) => { l.intensity=1.4+Math.sin(t*4+i*1.3)*0.4; });
+
+  keyObjects.forEach((k,i) => {
+    if (!k.collected&&k.mesh) {
+      k.mesh.rotation.z+=0.025;
+      k.mesh.position.y=k.position.y+Math.sin(t*2.5+i)*0.15;
+      if (k.light) k.light.intensity=1.3+Math.sin(t*3+i)*0.5;
+    }
+  });
+
+  if (gemMesh && !gemCollected) {
+    gemMesh.rotation.y+=0.035; gemMesh.rotation.x+=0.015;
+    const gemY=1.3+Math.sin(t*3)*0.22;
+    gemMesh.position.y=gemY;
+    if (gemLight) { gemLight.intensity=2.0+Math.sin(t*4)*1.0; gemLight.position.y=gemY+0.3; }
+    if (gemMesh.userData.extraLight) { gemMesh.userData.extraLight.intensity=0.6+Math.sin(t*3.5)*0.4; }
+  }
+
+  if (treasureMesh&&treasureLight) {
+    treasureLight.intensity=gemInserted ? (3+Math.sin(t*4)*1) : 0;
+  }
+
+  if (exitMesh&&exitLight&&exitActive) {
+    exitMesh.material.emissiveIntensity=0.5+Math.sin(t*5)*0.3;
+    exitMesh.rotation.y+=0.012;
+    exitLight.intensity=2.5+Math.sin(t*6)*1.2;
+  }
+
+  // Frog pet subtle bob & look-around on pirate shoulder
+  if (playerGroup.userData.frogGrp) {
+    const fg = playerGroup.userData.frogGrp;
+    fg.position.y = 0.52 + Math.sin(t*3.2)*0.025;
+    fg.rotation.y = Math.sin(t*0.9)*0.35;
+  }
+
+  // Guard frog: bob + look toward player
+  guards.forEach(g => {
+    const gf = g.mesh.userData.guardFrog;
+    if (!gf) return;
+    gf.position.y = 0.44 + Math.sin(t*4.1 + g.pos.x)*0.02;
+    // Face player direction slightly
+    const dx = playerPos.x - g.pos.x, dz = playerPos.z - g.pos.z;
+    gf.rotation.y = Math.atan2(dx, dz) - g.mesh.rotation.y + Math.sin(t*1.2)*0.2;
+  });
+}
+
+// ── HUD Update ─────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('score-display').textContent=score;
+  document.getElementById('level-display').textContent=currentLevel;
+  const pct=Math.round(panicMeter*100);
+  const fill=document.getElementById('panic-fill');
+  const pctEl=document.getElementById('panic-pct');
+  if(fill){fill.style.width=pct+'%';fill.className=pct>70?'danger':'';}
+  if(pctEl){pctEl.textContent=pct+'%';pctEl.style.color=pct>70?'#ff2222':pct>40?'#ffaa00':'#aaffaa';}
+  const tint=document.getElementById('panic-tint');
+  if(tint) tint.style.background=`rgba(255,0,0,${panicMeter>0.7?(panicMeter-0.7)*0.25:0})`;
+  const fog=document.getElementById('fear-fog');
+  if(fog) fog.style.opacity=panicMeter>0.5?(panicMeter-0.5)*0.6:'0';
+
+  const bars=['sb0','sb1','sb2','sb3','sb4'];
+  bars.forEach((id,i)=>{
+    const el=document.getElementById(id); if(!el) return;
+    const threshold=i/bars.length;
+    el.className='snd-bar'+(noiseLevel>threshold?(noiseLevel>0.7?' danger':noiseLevel>0.4?' warn':' active'):'');
+  });
+  const ab=document.getElementById('alert-border');
+  if(panicMeter>0.7&&alertTimer<=0) ab.classList.add('on');
+  else if(alertTimer<=0) ab.classList.remove('on');
+}
+
+// ── Minimap ───────────────────────────────────────────────
+function drawMinimap() {
+  const mc=document.getElementById('mm-canvas');
+  const ctx=mc.getContext('2d');
+  const MW=160,MH=110;
+  ctx.clearRect(0,0,MW,MH);
+  ctx.fillStyle='#060612'; ctx.fillRect(0,0,MW,MH);
+  const sx=MW/ARENA_W,sz=MH/ARENA_D;
+  const ox=MW/2,oz=MH/2;
+
+  hidingSpots.forEach(s=>{
+    const px=ox+s.position.x*sx,pz=oz+s.position.z*sz;
+    ctx.fillStyle='#3a2810';
+    ctx.beginPath(); ctx.arc(px,pz,s.radius*sx*0.5,0,Math.PI*2); ctx.fill();
+  });
+
+  keyObjects.forEach(k=>{
+    if(!k.collected){
+      const kx=ox+k.position.x*sx,kz=oz+k.position.z*sz;
+      ctx.fillStyle='rgba(245,200,66,0.9)';
+      ctx.beginPath(); ctx.arc(kx,kz,4,0,Math.PI*2); ctx.fill();
+    }
+  });
+
+  if (!gemCollected&&gemMesh) {
+    const gx=ox+gemMesh.position.x*sx,gz=oz+gemMesh.position.z*sz;
+    ctx.fillStyle='rgba(200,100,255,0.9)';
+    ctx.beginPath(); ctx.arc(gx,gz,4,0,Math.PI*2); ctx.fill();
+  }
+
+  if (demonMesh) {
+    const dx=ox+demonPos.x*sx,dz=oz+demonPos.z*sz;
+    ctx.fillStyle='rgba(255,50,50,0.8)';
+    ctx.beginPath(); ctx.arc(dx,dz,4,0,Math.PI*2); ctx.fill();
+  }
+
+  if (!hasTreasure&&treasureMesh) {
+    const tx=ox+treasureMesh.position.x*sx,tz=oz+treasureMesh.position.z*sz;
+    ctx.fillStyle=gemInserted?'rgba(255,150,0,0.9)':'rgba(255,150,0,0.4)';
+    ctx.beginPath(); ctx.arc(tx,tz,5,0,Math.PI*2); ctx.fill();
+  }
+
+  const ex=ox+EXIT_POS.x*sx,ez=oz+EXIT_POS.z*sz;
+  ctx.fillStyle=exitActive?'rgba(0,255,100,0.9)':'rgba(0,255,100,0.3)';
+  ctx.beginPath(); ctx.arc(ex,ez,5,0,Math.PI*2); ctx.fill();
+
+  guards.forEach(g=>{
+    const gx=ox+g.pos.x*sx,gz=ox+g.pos.z*sz;
+    ctx.fillStyle=g.alertLevel>0.7?'#ff2222':g.alertLevel>0.3?'#ff8800':'#ffaa44';
+    ctx.beginPath(); ctx.arc(gx,gz,3.5,0,Math.PI*2); ctx.fill();
+  });
+
+  // Ship boxes
+  shipBoxes.forEach(sb=>{
+    if(!sb.opened){
+      const bx=ox+sb.position.x*sx,bz=oz+sb.position.z*sz;
+      ctx.fillStyle='rgba(150,100,50,0.8)';
+      ctx.fillRect(bx-3,bz-3,6,6);
+    }
+  });
+
+  const px=ox+playerPos.x*sx,pz=oz+playerPos.z*sz;
+  ctx.fillStyle='#00ff64';
+  ctx.beginPath(); ctx.arc(px,pz,4.5,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#00ffcc'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(px,pz,6,0,Math.PI*2); ctx.stroke();
+  ctx.strokeStyle='rgba(245,200,66,.25)'; ctx.lineWidth=1;
+  ctx.strokeRect(1,1,MW-2,MH-2);
+}
+
+// ── Main Loop ─────────────────────────────────────────────
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt=Math.min((ts-lastTime)/1000,0.05);
+  lastTime=ts;
+  const t=ts/1000;
+
+  if (gameState==='play') {
+    updatePlayer(dt);
+    guards.forEach(g=>updateGuard(g,dt));
+    updateDemon(dt,t);
+    animateWorld(t);
+    maybePlayFrogChirp(dt);
+
+    if (panicMeter>=1) { panicMeter=1; triggerGameOver(); }
+
+    if (alertOverlayTimer>0) {
+      alertOverlayTimer--;
+      const pct=alertOverlayTimer/120;
+      document.getElementById('alert-overlay').style.opacity=pct.toString();
+      if(alertOverlayTimer<=0) document.getElementById('alert-border').classList.remove('on');
+    }
+
+    if (demonWarningTimer>0) {
+      demonWarningTimer--;
+      if (demonWarningTimer<=0) document.getElementById('demon-warning').classList.remove('show');
+    }
+
+    const anySpotted=guards.some(g=>g.alertLevel>0.4);
+    document.getElementById('spotted-indicator').style.opacity=anySpotted?(panicMeter*0.85).toString():'0';
+
+    updateHUD();
+    drawMinimap();
+  }
+
+  renderer.render(scene,camera);
+}
+
+// ── Start ─────────────────────────────────────────────────
+function startGame() {
+  document.getElementById('title-screen').style.display='none';
+  ['hud','keys-guide','minimap','zone-label','diff-badge','cam-badge','sound-indicator'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=id==='hud'?'flex':'block';
+  });
+  document.getElementById('sound-indicator').style.display='flex';
+  startLevel(1);
+  setTimeout(()=>{
+    showMsg('☠ SKULLPORT ESCAPE — Pirate\'s Eye',
+      `You are a cursed pirate. Frog-demons haunt every level.\n\n` +
+      `LEVEL 1 TUTORIAL:\n` +
+      `🗝 All 3 items are on the Port this level!\n` +
+      `🗝 Key 1 & Key 2 + 💎 Gem — grab all 3 from the port\n` +
+      `💎 Press [E] near the chest to insert the gem into\n` +
+      `   Key 1 or Key 2 (only one unlocks the treasure!)\n` +
+      `💰 Then grab the treasure and run to the EXIT!\n\n` +
+      `[C] = Switch Camera · [Shift] = Sneak · [Space] = Hide`,
+      '🏴‍☠️ Begin!',
+      ()=>showClue(LEVEL_DEFS[0].clue,5500)
+    );
+  },400);
+  requestAnimationFrame(loop);
+}
+
+requestAnimationFrame(ts=>{ lastTime=ts; });
+</script>
+</body>
+</html>
